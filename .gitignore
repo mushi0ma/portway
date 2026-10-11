@@ -8,6 +8,7 @@ coverage*
 *.test
 *.out
 .DS_Store
+.idea/
 
 .aws/
 .codex/
