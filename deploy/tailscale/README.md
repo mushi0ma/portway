@@ -34,6 +34,6 @@ make check-live
 
 Образ закреплён digest в `compose.funnel.yaml`. Для планового обновления: `docker pull tailscale/tailscale:stable`, затем `docker image inspect tailscale/tailscale:stable --format '{{index .RepoDigests 0}}'` и сохранить результат в `PORTWAY_TAILSCALE_IMAGE` в `.env`. Тег `stable` используется только для поиска нового образа; рабочая конфигурация сохраняет digest.
 
-Образ v1.102.5 загружен, контейнер запускается с userspace networking. Для первого входа предусмотрен таймаут 30 минут. Фактический статус авторизации и публичного пути фиксируется в [протоколе среза](../../docs/evidence/execution-foundation-2026-10-12.txt). Старый host Funnel сохраняется до проверки нового узла.
+Образ v1.102.5 загружен, контейнер запускается с userspace networking. Для первого входа предусмотрен таймаут 30 минут. Фактический статус авторизации и публичного пути фиксируется в [протоколе среза](../../docs/evidence/execution-foundation-2026-10-12.txt). Рабочий Docker Funnel: `https://portway.tail1443b8.ts.net`. Публичный путь и сохранение node ID/домена после restart проверены; [протокол переключения](../../docs/evidence/docker-funnel-2026-10-12.txt). Старый host Funnel можно отключить после обновления Supabase URL Configuration.
 
 Источники: [Docker parameters](https://tailscale.com/docs/features/containers/docker/docker-params), [Funnel CLI](https://tailscale.com/docs/reference/tailscale-cli/funnel), [boot timeout в исходниках v1.102.5](https://github.com/tailscale/tailscale/blob/v1.102.5/cmd/containerboot/settings.go).

@@ -8,22 +8,23 @@
 Текущая установка использует Tailscale Funnel и постоянное имя узла:
 
 ```text
-Site URL: https://cachyos-x8664.tail1443b8.ts.net
-Redirect URL: https://cachyos-x8664.tail1443b8.ts.net/auth/confirm
-Local origin: http://127.0.0.1:8080
+Site URL: https://portway.tail1443b8.ts.net
+Redirect URL: https://portway.tail1443b8.ts.net/auth/confirm
+Container origin: http://api:8080
+Local diagnostics: http://127.0.0.1:8080
 ```
 
 Основной Compose публикует `${PORTWAY_PORT}` только на loopback и направляет его на порт 8080 внутри API-контейнера. Текущий `.env`: `PORTWAY_PORT=8080`, поскольку 8000 занят другим проектом. При смене URL туннеля изменить `.env` и Supabase URL Configuration, затем пересоздать API. Сам шаблон с `.RedirectTo` менять не требуется.
 
 ```sh
-# Для настройки Funnel на уже авторизованном хосте:
-tailscale funnel --bg http://127.0.0.1:8080
-tailscale funnel status
+docker compose up -d
+# COMPOSE_PROFILES=execution,funnel сохранён в .env.
+docker compose exec funnel tailscale funnel status
 ```
 
-`--bg` сохраняет публикацию при перезапуске Tailscale/хоста. В текущей установке Funnel уже включён; повторная настройка при каждом запуске API не нужна. После смены HTTPS URL обновить `PORTWAY_PUBLIC_URL`, Site URL и Redirect URL в Supabase, затем `docker compose up -d --no-deps --wait api`. Команда `make check-live` подтвердит, что по настроенному URL отвечает именно эта installation. На хосте с Tailscale DNS может вести через приватный tailnet; доступ из интернета дополнительно проверять с устройства вне tailnet. [Документация Funnel](https://tailscale.com/docs/reference/tailscale-cli/funnel).
+Funnel работает отдельным Docker-узлом `portway`; контейнер обращается к `http://api:8080` по внутренней сети. После смены HTTPS URL обновить `PORTWAY_PUBLIC_URL`, Site URL и Redirect URL в Supabase, затем `docker compose up -d --no-deps --wait api`. Шаблон письма с `.RedirectTo` менять не требуется. `make check-live` проверяет, что URL ведёт в нужную installation. На хосте с Tailscale DNS может вести через приватный tailnet; публичный путь дополнительно проверен через внешний DNS. [Настройка Docker Funnel и persistent volume](../tailscale/README.md).
 
-Go API, Kafka и workers уже работают в Docker. Текущий Tailscale daemon работает на хосте и обращается к опубликованному loopback-порту API. При переносе самого Tailscale в контейнер необходимо сохранять `TS_STATE_DIR=/var/lib/tailscale` в постоянном volume: без сохранённого состояния создаётся новый узел, поэтому прежнее DNS-имя нельзя считать перенесённым автоматически. Перенос действующего узла в контейнер пока не выполнялся. [Состояние Tailscale в Docker](https://tailscale.com/docs/features/containers/docker/docker-params).
+Состояние узла хранится в named volume `tailscale-state`. Перезапуск сохраняет node ID и домен; вход при каждом запуске не нужен. Старый host Funnel пока сохранён для перехода и не используется новым `PORTWAY_PUBLIC_URL`. После изменения Supabase URL Configuration его можно отдельно отключить по инструкции Docker Funnel.
 
 Настройки URL Configuration и шаблон письма в Supabase Dashboard этим развёртыванием не изменялись. Проверка `/auth/confirm` без token_hash ожидаемо возвращает HTTP 400 и не заменяет регистрацию с настоящим письмом.
 

@@ -1,3 +1,6 @@
+Follow-up: Docker Funnel login/public route/restart completed in
+docker-funnel-2026-10-12.txt; the pending tunnel/remote state below is historical.
+
 Portway execution foundation / dedicated Docker Funnel
 Work started 2026-10-11; live deployment verified 2026-10-12 (Asia/Almaty).
 

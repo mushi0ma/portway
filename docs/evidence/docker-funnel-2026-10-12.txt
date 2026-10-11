@@ -1,0 +1,45 @@
+Portway Docker Funnel cutover
+Date: 2026-10-12 (Asia/Almaty)
+
+Supersedes the NeedsLogin / pending GitHub remote state in
+execution-foundation-2026-10-12.txt.
+
+User completed interactive node authorization and provided GitHub repository.
+Docker Tailscale state: Running.
+DNS: portway.tail1443b8.ts.net
+Funnel: HTTPS 443 -> http://api:8080.
+PORTWAY_PUBLIC_URL updated in ignored .env; API recreated successfully.
+Persistent named volume: tailscale-state.
+Funnel restart: PASS; same node ID and DNS name, no repeated login.
+
+Public internet route checked using public DNS (dns.google A lookup) and curl
+--resolve / --noproxy '*' to bypass local MagicDNS. TLS/SNI/CA checks enabled.
+/healthz: 200
+/v1/client-config: 200; installation matches configured API
+/v1/runs without credentials: 401
+/auth/confirm without token: 400
+Public health and installation identity checked again after restart: PASS.
+
+make check-live: PASS
+- Four service DB roles use verified TLS and restricted permissions.
+- Five migration checksums match local source.
+- All three business schemas deny Supabase anon/authenticated roles.
+- Auth settings: email provider enabled, email confirmation required.
+- Local API and new public URL: health/config 200, agents/runs 401,
+  confirmation without token 400, readiness expected 503.
+- Relay, audit, execution DB+Kafka readiness: PASS.
+
+Supabase Dashboard Site URL / Redirect URL and email template are not edited
+by these checks. Required current settings:
+Site URL: https://portway.tail1443b8.ts.net
+Redirect URL: https://portway.tail1443b8.ts.net/auth/confirm
+Actual owner signup/email confirmation: not performed.
+Existing host Funnel is retained for transition until Dashboard URLs are updated.
+No business records or email messages created by these checks.
+
+origin: https://github.com/mushi0ma/portway.git (empty repository before push).
+Existing history and working-tree candidates scanned for configured credentials:
+135 history blobs checked, zero credential value matches. .env remains ignored.
+Changes in this step are deployment configuration/documentation; previous Go
+Docker/race/integration/production-smoke results remain recorded in the prior report.
+Remote CI results are available in the repository's GitHub Actions runs.
