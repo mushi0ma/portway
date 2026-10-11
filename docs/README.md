@@ -231,3 +231,5 @@
 [id-doc-036]: 36-api-events-and-messages.md
 
 - [DOC-022: первый срез Kafka, доставка аудита и эксплуатационные ограничения](22-kafka-first-slice.md).
+
+- [Execution foundation: фактическая граница и ограничения](23-execution-foundation.md).

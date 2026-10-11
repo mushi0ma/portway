@@ -17,6 +17,16 @@ COPY internal ./internal
 RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-s -w -X main.version=${VERSION} -X main.revision=${REVISION}" -o /out/portway ./cmd/portway
 RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-s -w" -o /out/events ./cmd/events
 
+RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-s -w" -o /out/execution ./cmd/execution
+
+FROM scratch AS execution-runtime
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /out/execution /execution
+USER 65532:65532
+EXPOSE 8082
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s CMD ["/execution", "probe"]
+ENTRYPOINT ["/execution"]
+
 FROM scratch AS events-runtime
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /out/events /events

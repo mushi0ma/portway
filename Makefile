@@ -24,6 +24,7 @@ test-integration:
 build-server:
 	CGO_ENABLED=0 go build -trimpath -buildvcs=false -o bin/portway ./cmd/portway
 	CGO_ENABLED=0 go build -trimpath -buildvcs=false -o bin/events ./cmd/events
+	CGO_ENABLED=0 go build -trimpath -buildvcs=false -o bin/execution ./cmd/execution
 verify: fmt-check lint test-unit test-contract test-integration build-server
 docker-test:
 	@sh scripts/docker-test.sh

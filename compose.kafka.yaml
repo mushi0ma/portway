@@ -59,26 +59,15 @@ services:
     environment:
       KAFKA_HEAP_OPTS: -Xms64m -Xmx128m
     tmpfs: ["/tmp:rw,noexec,nosuid,size=64m,uid=1000,gid=1000"]
-    entrypoint: [/opt/kafka/bin/kafka-topics.sh]
+    entrypoint: [/bin/sh, -ec]
     command:
-      - --bootstrap-server
-      - kafka:9092
-      - --create
-      - --if-not-exists
-      - --topic
-      - portway.control.audit.v1
-      - --partitions
-      - "3"
-      - --replication-factor
-      - "1"
-      - --config
-      - retention.ms=604800000
-      - --config
-      - retention.bytes=67108864
-      - --config
-      - segment.bytes=8388608
-      - --config
-      - min.insync.replicas=1
+      - |
+        for topic in portway.control.audit.v1 portway.execution.events.v1; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+            --topic "$$topic" --partitions 3 --replication-factor 1 \
+            --config retention.ms=604800000 --config retention.bytes=67108864 \
+            --config segment.bytes=8388608 --config min.insync.replicas=1
+        done
     depends_on:
       kafka:
         condition: service_healthy

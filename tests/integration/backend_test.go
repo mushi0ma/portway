@@ -23,6 +23,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"portway/internal/config"
+	"portway/internal/execution"
 	"portway/internal/identity"
 	"portway/internal/secure"
 	"portway/internal/storage"
@@ -190,7 +191,23 @@ func TestBackend(t *testing.T) {
 	var logs bytes.Buffer
 	var logMu sync.Mutex
 	logger := slog.New(slog.NewJSONHandler(&lockedWriter{&logMu, &logs}, nil))
+	execDB, err := storage.Open(ctx, os.Getenv("TEST_EXECUTION_DATABASE_URL"), installation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer execDB.Close()
+	c.ExecutionKey = secure.Token()
+	controlURL := ""
+	execAPI := httptest.NewServer(execution.HTTPServer{
+		Store: execution.Store{Pool: execDB.Pool, Installation: installation}, ServiceKey: c.ExecutionKey,
+		Authorize: func(ctx context.Context, bearer, proof string) (execution.Authority, error) {
+			return execution.ControlAuthorizer(controlURL, c.ExecutionKey, http.DefaultClient)(ctx, bearer, proof)
+		},
+	}.Handler())
+	defer execAPI.Close()
+	c.ExecutionURL = execAPI.URL
 	api := httptest.NewServer(transport.New(c, app, logger).Handler())
+	controlURL = api.URL
 	defer api.Close()
 	client := api.Client()
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
@@ -238,6 +255,19 @@ func TestBackend(t *testing.T) {
 	}
 	one, two := login(), login()
 	token, proof := one.Session.AccessToken, one.DeviceProof
+	code, _, b = call("GET", "/v1/runs", "", token, proof, "", nil)
+	want(t, code, 200, b)
+	runBody := fmt.Sprintf(`{"agent_version_id":%q,"provider_id":%q,"task":"test","repository_ref":"demo","revision":%q}`, secure.ID(), secure.ID(), strings.Repeat("a", 40))
+	code, _, b = call("POST", "/v1/runs", runBody, token, proof, "run-admission-key", nil)
+	want(t, code, 503, b)
+	if !bytes.Contains(b, []byte("EXECUTION_NOT_READY")) {
+		t.Fatal("incorrect admission reason")
+	}
+	code, _, b = request(t, client, execAPI.URL, "GET", "/internal/v1/runs", "", token, proof, "", nil)
+	want(t, code, 401, b)
+	code, _, b = request(t, client, execAPI.URL, "GET", "/internal/v1/runs", "", token, proof, "", map[string]string{"X-Portway-Service-Key": c.ExecutionKey})
+	want(t, code, 200, b)
+
 	code, _, b = call("GET", "/v1/me", "", token, proof, "", nil)
 	want(t, code, 200, b)
 	code, _, b = call("GET", "/v1/me", "", auth.token(secure.ID(), auth.session), proof, "", nil)
@@ -406,6 +436,8 @@ func TestBackend(t *testing.T) {
 	code, _, b = call("GET", "/v1/me", "", token, proof, "", nil)
 	want(t, code, 401, b)
 	code, _, b = call("POST", "/v1/auth/refresh", `{"refresh_token":"refresh-marker"}`, "", proof, "", nil)
+	want(t, code, 401, b)
+	code, _, b = request(t, client, execAPI.URL, "GET", "/internal/v1/runs", "", token, proof, "", map[string]string{"X-Portway-Service-Key": c.ExecutionKey})
 	want(t, code, 401, b)
 	auth.fail.Store(true)
 	code, _, b = call("POST", "/v1/auth/logout", "", two.Session.AccessToken, two.DeviceProof, "", nil)

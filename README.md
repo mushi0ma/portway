@@ -1,17 +1,18 @@
 # Portway
 
-Go-бэкенд мобильного пульта для агентов разработки. Целевая архитектура с 11.10 — **микросервисы и Kafka**, по [решению владельца D-22](docs/21-microservices-kafka-amendment.md); текущая реализация включает control API, отдельные outbox relay и audit consumer; execution ещё предстоит выделить. Реализован первый срез **foundation + identity + agent configuration** по проектным документам в [docs](docs/README.md). Это начало приложения, а не готовый MVP. [Первый срез Kafka и его ограничения](docs/22-kafka-first-slice.md).
+Go-бэкенд мобильного пульта для агентов разработки. Целевая архитектура с 11.10 — **микросервисы и Kafka**, по [решению владельца D-22](docs/21-microservices-kafka-amendment.md); текущая реализация включает control API, отдельные outbox relay и audit consumer; добавлен отдельный execution service для состояния и бюджетов, production run admission пока закрыт. Реализован первый срез **foundation + identity + agent configuration** по проектным документам в [docs](docs/README.md). Это начало приложения, а не готовый MVP. [Execution foundation](docs/23-execution-foundation.md), [Funnel в Docker](deploy/tailscale/README.md). [Первый срез Kafka и его ограничения](docs/22-kafka-first-slice.md).
 
 ## Что работает
 
 - Первый Go-сервис (`control-api`, разделение ещё впереди): конфигурация, JSON HTTP API, корректное завершение процесса, безопасные структурные логи.
-- PostgreSQL: четыре транзакционные миграции с checksum и advisory lock; отдельные права API, мигратора и workers; закрытые схемы `portway` и `portway_audit`.
+- PostgreSQL: пять транзакционных миграций с checksum и advisory lock; отдельные права API, мигратора и workers; закрытые схемы `portway`, `portway_audit` и `portway_execution`.
 - Supabase Auth adapter: регистрация единственного владельца с setup proof, email callback, login/refresh/logout; JWT RS256/ES256 через JWKS, legacy HS256 через Auth API; привязка subject + auth session + device proof, серверный отзыв устройств.
 - Каталог 5 основных ролей и 3 субагентских пресетов, создание агента, неизменяемые версии, проверка `If-Match`, ограничения прав и численные defaults SRS.
 - Конфигурация allowlisted провайдеров, write-only секреты AES-256-GCM, транзакционные idempotency keys и аудит; чтение статуса по операциям.
+- Отдельный execution service: run/chain snapshots, reservations/settlement, stop epochs, startup reconciliation, собственные history/outbox и Kafka topic; HTTP admission остаётся закрытым до Runtime/LLM.
 - OpenAPI 3.1 в [api/openapi.json](api/openapi.json), тесты с race detector, изолированный PostgreSQL в Docker и GitHub Actions workflow.
 
-**Пока не реализованы:** Runtime Manager и контейнеры выполнения агентов, LLM Harness/capability probes, run/chain, SSE, бюджеты исполнения, approvals, links/hooks и события исполнения, MCP, FCM, пакеты и Android. Создание конфигурации не запускает модель. `unresolved` явно показывает недостающие привязки. Новые S/C-расширения из backlog не добавлялись.
+**Пока не реализованы:** Runtime Manager и контейнеры выполнения агентов, LLM Harness/capability probes, реальный dispatch run/chain, SSE, approvals, links/hooks и события исполнения, MCP, FCM, пакеты и Android. Создание конфигурации не запускает модель. `unresolved` явно показывает недостающие привязки. Новые S/C-расширения из backlog не добавлялись.
 
 ## Проверить без Supabase и платных сервисов
 
@@ -96,7 +97,7 @@ Compose сначала применяет миграции, затем запу�
 
 После запуска публичный `GET /v1/client-config` показывает `setup_required`. Для регистрации использовать `POST /v1/auth/register`, заголовки `X-Setup-Proof`, `Idempotency-Key`, JSON `name/email/password`. Setup proof расходуется после подтверждения владельца. Login выдаёт `session` и `device_proof`; защищённые запросы используют одновременно `Authorization: Bearer …` и `X-Device-Session: …`.
 
-Текущий стек с реальной Supabase доступен по [HTTPS через Tailscale Funnel](https://cachyos-x8664.tail1443b8.ts.net/healthz); origin — `http://127.0.0.1:8080`. `PORTWAY_PUBLIC_URL` применён к API. Для постоянной публикации на уже авторизованном хосте используется `tailscale funnel --bg http://127.0.0.1:8080`; Funnel работает на хосте, Go-сервисы и Kafka — в Docker. Site URL, callback `/auth/confirm` и шаблон письма в Supabase Dashboard настроить по [инструкции](deploy/supabase/README.md).
+Текущий стек с реальной Supabase доступен по [HTTPS через Tailscale Funnel](https://cachyos-x8664.tail1443b8.ts.net/healthz); origin — `http://127.0.0.1:8080`. `PORTWAY_PUBLIC_URL` применён к API. Для постоянной публикации на уже авторизованном хосте используется `tailscale funnel --bg http://127.0.0.1:8080`; Этот действующий Funnel пока работает на хосте. Отдельный Docker Funnel уже запущен и ждёт повторного входа после исправления bootstrap timeout; переход описан в [инструкции](deploy/tailscale/README.md). Go-сервисы и Kafka работают в Docker. Site URL, callback `/auth/confirm` и шаблон письма в Supabase Dashboard настроить по [инструкции](deploy/supabase/README.md).
 
 `GET /healthz` — процесс жив. Docker healthcheck использует его. **`GET /readyz` сейчас всегда 503**, поскольку запуск агентов ещё не реализован. Защищённый `GET /v1/status` отдельно сообщает `operations.configuration` и `operations.run=false`; неизвестные зависимости не объявляются готовыми.
 

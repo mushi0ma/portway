@@ -29,12 +29,13 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request, p identity.Princ
 		"stage": "foundation", "ready": false,
 		"operations": map[string]any{"configuration": configurationReady, "run": false},
 		"dependencies": map[string]any{
-			"db":       map[string]any{"state": db, "checked_at": time.Now().UTC()},
-			"events":   map[string]any{"state": eventState, "pending": pending, "oldest_at": oldest, "broker_health": "check worker readiness"},
-			"auth":     map[string]any{"state": "unknown", "verification": "JWT and device guard passed; upstream health not probed"},
-			"runtime":  map[string]any{"state": "unavailable", "error_code": "NOT_IMPLEMENTED"},
-			"provider": map[string]any{"state": "unknown", "error_code": "CAPABILITY_CHECK_NOT_IMPLEMENTED"},
-			"push":     map[string]any{"state": "unknown", "error_code": "NOT_IMPLEMENTED"},
+			"db":        map[string]any{"state": db, "checked_at": time.Now().UTC()},
+			"events":    map[string]any{"state": eventState, "pending": pending, "oldest_at": oldest, "broker_health": "check worker readiness"},
+			"auth":      map[string]any{"state": "unknown", "verification": "JWT and device guard passed; upstream health not probed"},
+			"execution": map[string]any{"configured": s.Config.ExecutionURL != "", "run_admission": false, "error_code": "EXECUTION_NOT_READY"},
+			"runtime":   map[string]any{"state": "unavailable", "error_code": "NOT_IMPLEMENTED"},
+			"provider":  map[string]any{"state": "unknown", "error_code": "CAPABILITY_CHECK_NOT_IMPLEMENTED"},
+			"push":      map[string]any{"state": "unknown", "error_code": "NOT_IMPLEMENTED"},
 		},
 	}, nil
 }

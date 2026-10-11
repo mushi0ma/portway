@@ -1,5 +1,5 @@
 name: portway
-include: [compose.kafka.yaml]
+include: [compose.kafka.yaml, compose.funnel.yaml]
 
 x-common: &common
   image: portway-api:${PORTWAY_VERSION:-dev}
@@ -28,6 +28,8 @@ x-common: &common
     PORTWAY_DATABASE_MAX_CONNS: ${PORTWAY_DATABASE_MAX_CONNS:-2}
     PORTWAY_MASTER_KEY: ${PORTWAY_MASTER_KEY:?Run make init-env}
     PORTWAY_SETUP_TOKEN: ${PORTWAY_SETUP_TOKEN:?Run make init-env}
+    PORTWAY_EXECUTION_URL: ${PORTWAY_EXECUTION_URL:-}
+    PORTWAY_EXECUTION_SERVICE_KEY: ${PORTWAY_EXECUTION_SERVICE_KEY:-}
     PORTWAY_LLM_ALLOWED_ENDPOINTS: ${PORTWAY_LLM_ALLOWED_ENDPOINTS:-}
   volumes:
     - ./deploy/certs:/etc/portway/certs:ro
@@ -81,3 +83,16 @@ services:
     environment:
       <<: *worker-environment
       PORTWAY_DATABASE_URL: ${PORTWAY_AUDIT_DATABASE_URL:-}
+  execution:
+    <<: *worker
+    image: portway-execution:${PORTWAY_VERSION:-dev}
+    build:
+      context: .
+      target: execution-runtime
+    profiles: [execution]
+    command: []
+    environment:
+      <<: *worker-environment
+      PORTWAY_DATABASE_URL: ${PORTWAY_EXECUTION_DATABASE_URL:-}
+      PORTWAY_EXECUTION_SERVICE_KEY: ${PORTWAY_EXECUTION_SERVICE_KEY:-}
+      PORTWAY_CONTROL_URL: http://api:8080

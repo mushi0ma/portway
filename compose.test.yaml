@@ -26,6 +26,7 @@ services:
       PORTWAY_REQUIRE_INTEGRATION: "1"
       TEST_RELAY_DATABASE_URL: postgres://portway_relay:disposable-relay-password@postgres:5432/portway_test?sslmode=disable
       TEST_AUDIT_DATABASE_URL: postgres://portway_audit:disposable-audit-password@postgres:5432/portway_test?sslmode=disable
+      TEST_EXECUTION_DATABASE_URL: postgres://portway_execution:disposable-execution-password@postgres:5432/portway_test?sslmode=disable
       TEST_KAFKA_BROKERS: kafka:9092
     depends_on:
       postgres:

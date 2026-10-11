@@ -17,6 +17,7 @@ import (
 type Config struct {
 	Environment, HTTPAddr, InstallationID, InstallationName string
 	DatabaseURL, MigrationURL, AuthURL, AuthKey, PublicURL  string
+	ExecutionURL, ExecutionKey                              string
 	SetupHash                                               string
 	MasterKey                                               []byte
 	AllowedEndpoints                                        []string
@@ -128,6 +129,14 @@ func Load() (Config, error) {
 		if c.Environment == "production" && u.Query().Get("sslmode") != "verify-full" {
 			return c, errors.New("production database requires sslmode=verify-full")
 		}
+	}
+	c.ExecutionURL = os.Getenv("PORTWAY_EXECUTION_URL")
+	c.ExecutionKey, err = Secret("PORTWAY_EXECUTION_SERVICE_KEY", false)
+	if err != nil {
+		return c, err
+	}
+	if c.ExecutionURL != "" && (c.ExecutionURL != "http://execution:8082" || len(c.ExecutionKey) < 32) {
+		return c, errors.New("execution requires its private Compose URL and a separate service key")
 	}
 	key, err := Secret("PORTWAY_MASTER_KEY", true)
 	if err != nil {

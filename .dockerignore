@@ -12,3 +12,6 @@ bin
 coverage*
 docs/diagrams
 .tmp
+
+__pycache__
+*.pyc

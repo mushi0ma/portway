@@ -1,0 +1,40 @@
+# Optional dedicated Tailscale node. Start with: docker compose --profile funnel up -d funnel
+services:
+  funnel:
+    image: ${PORTWAY_TAILSCALE_IMAGE:-tailscale/tailscale@sha256:c507f3a2a6ab1cabd8d809b98edeb41edbd5c3fb6ad9632ffd098b4c7d0b4065}
+    profiles: [funnel]
+    hostname: portway
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 100
+    mem_limit: 256m
+    cpus: 0.5
+    environment:
+      TS_HOSTNAME: portway
+      TS_USERSPACE: "true"
+      TS_AUTH_ONCE: "true"
+      TS_BOOT_TIMEOUT: 30m
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_ENABLE_HEALTH_CHECK: "true"
+      TS_LOCAL_ADDR_PORT: 127.0.0.1:9002
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - ./deploy/tailscale:/config:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+      - /var/run:rw,noexec,nosuid,size=8m
+    networks: [default]
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:9002/healthz']
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+volumes:
+  tailscale-state:

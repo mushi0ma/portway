@@ -1,0 +1,60 @@
+Portway execution foundation / dedicated Docker Funnel
+Work started 2026-10-11; live deployment verified 2026-10-12 (Asia/Almaty).
+
+Baseline version control:
+5836da2 feat: bootstrap Go control API with Supabase and Kafka audit services
+No application credentials matched tracked/candidate files; .env remains ignored.
+GitHub authentication available; remote not configured. Requested repo URL is pending.
+No repository mushi0ma/Portway found by read-only gh repo view.
+
+Execution implementation:
+- Separate scratch/non-root/read-only process and private HTTP API, no Docker socket.
+- Migration 005, isolated portway_execution schema and role; no foreign-service SQL.
+- Current owner/device rechecked through control-api per internal request.
+- Run/chain aggregate, immutable snapshot, atomic reserve/settle, stop epochs.
+- Startup singleton session lock and conservative interruption reconciliation.
+- Durable per-run history and outbox -> portway.execution.events.v1, acks=all.
+- Run list omits full tasks/instructions; detailed snapshot is read by ID.
+- Production run admission returns EXECUTION_NOT_READY; no LLM/Runtime dispatch.
+
+Verification:
+Initial docker-test: domain/unit/contract and DB transactions passed; new Kafka
+consumer fixture failed because DisableAutoCommit was set without a group.
+Removed the irrelevant fixture option; no production workaround introduced.
+Subsequent full docker-test: PASS (format, vet, unit race, OpenAPI, integration race,
+three binaries). Integration covers duplicate creation, capacity, shared budget
+reservation race, rollback, stop replay, restart without refund/revival, role and
+owner isolation, safe events, real Kafka ACK/crash/republication with same ID.
+HTTP integration: control -> execution -> live identity callback; service key alone
+cannot authorize requests; revoked device rejected on a direct internal request.
+Final full docker-test after list-summary regression: PASS; integration 7.997s,
+unit -race, vet, OpenAPI and all three binary builds passed.
+Production API image smoke: PASS (migrations, guard, readonly/nonroot, restart).
+
+Live Supabase:
+New execution role provisioned; existing passwords preserved. Service DSN and key
+saved in .env without printing. Migration 005 applied. Both Kafka topics exist.
+API, relay, audit and execution images built and started successfully.
+make check-live: PASS (four roles over verified TLS; five migration checksums;
+three schemas deny anon/authenticated; Auth confirmation; local/public health and
+installation match; unauthenticated agents/runs 401; callback without token 400;
+API readiness expected 503; relay/audit/execution DB+Kafka probes pass).
+Execution production restart and singleton lock reacquisition: PASS.
+No production owner, synthetic runs or paid external model calls created.
+
+Docker Funnel:
+Image v1.102.5 pinned to
+ tailscale/tailscale@sha256:c507f3a2a6ab1cabd8d809b98edeb41edbd5c3fb6ad9632ffd098b4c7d0b4065
+Userspace networking; no host network, TUN, added capabilities or Docker socket.
+Persistent named state volume; TS_SERVE_CONFIG proxies http://api:8080 only.
+Initial interactive login failed to persist because containerboot timed out after
+its default 60 seconds, replacing the login URL. Set TS_BOOT_TIMEOUT=30m and
+recreated the node container. Current login URL was supplied in chat and is not committed.
+Status: NeedsLogin, awaiting second user authorization. New public route/restart
+identity persistence NOT_VERIFIED until this completes. Existing host Funnel and
+PORTWAY_PUBLIC_URL remain unchanged and working.
+COMPOSE_PROFILES=execution,funnel saved locally for normal compose up.
+
+Limits not claimed complete: actual model/tool execution, Runtime grants/fencing,
+approvals, public SSE, execution-event consumers, retention cleanup, real stop <=5s,
+FCM, Android, full SRS acceptance. See docs/23-execution-foundation.md.

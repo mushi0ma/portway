@@ -63,13 +63,16 @@ def query(dsn, statement):
         return None
 
 
-result = subprocess.run(['docker', 'compose', 'config', '--format', 'json'], capture_output=True)
+result = subprocess.run(['docker', 'compose', '--profile', 'execution', 'config', '--format', 'json'], capture_output=True)
 if result.returncode or b'variable is not set' in result.stderr:
     raise SystemExit('FAIL Compose configuration; details withheld.')
 services = json.loads(result.stdout)['services']
 api = services['api']['environment']
 admin = services['migrate']['environment']['PORTWAY_MIGRATION_DATABASE_URL']
-for service, role, schema in [('api', 'portway_app', 'portway'), ('outbox-relay', 'portway_relay', 'portway'), ('audit', 'portway_audit', 'portway_audit')]:
+roles = [('api', 'portway_app', 'portway'), ('outbox-relay', 'portway_relay', 'portway'), ('audit', 'portway_audit', 'portway_audit')]
+if api.get('PORTWAY_EXECUTION_URL'):
+    roles.append(('execution', 'portway_execution', 'portway_execution'))
+for service, role, schema in roles:
     dsn = services[service]['environment']['PORTWAY_DATABASE_URL']
     sql = "SELECT current_user,rolsuper,rolbypassrls,has_schema_privilege(current_user,'" + schema + "','CREATE') FROM pg_roles WHERE rolname=current_user;"
     report(service + ' verified TLS and restricted DB role', query(dsn, sql) == role + '|f|f|f')
@@ -79,7 +82,7 @@ for path in sorted((root / 'internal/storage/migrations').glob('*.sql')):
     expected.append(str(int(path.name.split('_')[0])) + '|' + hashlib.sha256(path.read_bytes()).hexdigest())
 actual = query(admin, 'SELECT version,checksum FROM portway.schema_migrations ORDER BY version;')
 report('migration checksums', actual == '\n'.join(expected), str(len(expected)) + ' expected migrations')
-anonymous = query(admin, "SELECT count(*)=4 AND bool_and(NOT has_schema_privilege(r.oid,n.oid,'USAGE')) FROM pg_roles r CROSS JOIN pg_namespace n WHERE r.rolname IN ('anon','authenticated') AND n.nspname IN ('portway','portway_audit');")
+anonymous = query(admin, "SELECT count(*)=6 AND bool_and(NOT has_schema_privilege(r.oid,n.oid,'USAGE')) FROM pg_roles r CROSS JOIN pg_namespace n WHERE r.rolname IN ('anon','authenticated') AND n.nspname IN ('portway','portway_audit','portway_execution');")
 report('business schemas closed to Supabase client roles', anonymous == 't')
 
 code, body = http(api['PORTWAY_AUTH_URL'] + '/settings', {'apikey': api['PORTWAY_AUTH_PUBLISHABLE_KEY']})
@@ -87,7 +90,7 @@ report('Supabase Auth publishable key and email confirmation', code == 200 and b
 port = services['api']['ports'][0]['published']
 endpoints = [] if '--private-only' in sys.argv else [('local API', 'http://127.0.0.1:' + str(port)), ('public API', api['PORTWAY_PUBLIC_URL'].rstrip('/'))]
 for label, base in endpoints:
-    for path, expected_status in [('/healthz', 200), ('/v1/client-config', 200), ('/v1/agents', 401), ('/auth/confirm', 400), ('/readyz', 503)]:
+    for path, expected_status in [('/healthz', 200), ('/v1/client-config', 200), ('/v1/agents', 401), ('/v1/runs', 401), ('/auth/confirm', 400), ('/readyz', 503)]:
         code, body = http(base + path)
         ok = code == expected_status
         if path == '/v1/client-config':
@@ -98,4 +101,7 @@ for label, base in endpoints:
 for service in ('outbox-relay', 'audit'):
     p = subprocess.run(['docker', 'compose', 'exec', '-T', service, '/events', 'probe'], capture_output=True)
     report(service + ' process readiness (DB + Kafka)', p.returncode == 0)
+if api.get('PORTWAY_EXECUTION_URL'):
+    p = subprocess.run(['docker', 'compose', 'exec', '-T', 'execution', '/execution', 'probe'], capture_output=True)
+    report('execution process readiness (DB + Kafka; run admission closed)', p.returncode == 0)
 raise SystemExit(1 if failures else 0)

@@ -12,7 +12,7 @@ import urllib.parse
 
 root = Path(__file__).resolve().parent.parent
 os.chdir(root)
-result = subprocess.run(['docker', 'compose', 'config', '--format', 'json'], capture_output=True)
+result = subprocess.run(['docker', 'compose', '--profile', 'execution', 'config', '--format', 'json'], capture_output=True)
 if result.returncode or b'variable is not set' in result.stderr:
     raise SystemExit('Invalid Compose configuration or unquoted dollar sign in .env; details withheld.')
 services = json.loads(result.stdout)['services']
@@ -44,7 +44,10 @@ text = path.read_text()
 updates = {}
 roles = [('portway_app', 'PORTWAY_DATABASE_URL', services['api']['environment']['PORTWAY_DATABASE_URL']),
          ('portway_relay', 'PORTWAY_RELAY_DATABASE_URL', services['outbox-relay']['environment']['PORTWAY_DATABASE_URL']),
-         ('portway_audit', 'PORTWAY_AUDIT_DATABASE_URL', services['audit']['environment']['PORTWAY_DATABASE_URL'])]
+         ('portway_audit', 'PORTWAY_AUDIT_DATABASE_URL', services['audit']['environment']['PORTWAY_DATABASE_URL']),
+         ('portway_execution', 'PORTWAY_EXECUTION_DATABASE_URL', services['execution']['environment']['PORTWAY_DATABASE_URL'])]
+if not services['api']['environment'].get('PORTWAY_EXECUTION_SERVICE_KEY'):
+    updates['PORTWAY_EXECUTION_SERVICE_KEY'] = secrets.token_urlsafe(32)
 configured = []
 for role, key, dsn in roles:
     exists = sql("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='" + role + "');") == 't'

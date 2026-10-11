@@ -11,3 +11,6 @@ coverage*
 
 .aws/
 .codex/
+
+__pycache__/
+*.pyc
