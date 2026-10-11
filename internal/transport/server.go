@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -29,6 +30,7 @@ type Server struct {
 	authMu     sync.Mutex
 	authWindow time.Time
 	authCount  int
+	streams    atomic.Int32
 }
 type requestKey struct{}
 type handler func(http.ResponseWriter, *http.Request, identity.Principal) (int, any, error)
@@ -83,14 +85,22 @@ func (s *Server) Handler() http.Handler {
 	s.route(m, "POST /v1/runs", true, s.executionProxy)
 	s.route(m, "GET /v1/runs", true, s.executionProxy)
 	s.route(m, "GET /v1/runs/{id}", true, s.executionProxy)
+	s.route(m, "GET /v1/runs/{id}/events", true, s.executionEvents)
 	s.route(m, "POST /v1/runs/{id}/stop", true, s.executionProxy)
 	s.route(m, "GET /v1/chains/{id}", true, s.executionProxy)
 	s.route(m, "POST /v1/chains/{id}/stop", true, s.executionProxy)
+	s.route(m, "GET /v1/approvals", true, s.executionProxy)
+	s.route(m, "GET /v1/approvals/{id}", true, s.executionProxy)
+	s.route(m, "POST /v1/approvals/{id}/decision", true, s.executionProxy)
 	s.route(m, "GET /v1/status", true, s.status)
 	s.route(m, "GET /v1/audit", true, s.audit)
 	m.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { s.respond(w, r, 0, nil, problem.NotFound()) })
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+		timeout := 20 * time.Second
+		if isEventStream(r) {
+			timeout = 30 * time.Minute
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
 		r = r.WithContext(context.WithValue(ctx, requestKey{}, secure.ID()))
 		w.Header().Set("X-Request-ID", r.Context().Value(requestKey{}).(string))
@@ -126,7 +136,9 @@ func (s *Server) route(m *http.ServeMux, pattern string, protected bool, h handl
 			}
 		}
 		if protected {
-			p, err = s.Identity.Authenticate(r.Context(), bearer(r), r.Header.Get("X-Device-Session"))
+			authCtx, authCancel := context.WithTimeout(r.Context(), 3*time.Second)
+			p, err = s.Identity.Authenticate(authCtx, bearer(r), r.Header.Get("X-Device-Session"))
+			authCancel()
 			if err != nil {
 				s.respond(w, r, 0, nil, err)
 				return

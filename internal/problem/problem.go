@@ -7,11 +7,14 @@ type Error struct {
 	Status  int    `json:"-"`
 	Code    string `json:"code"`
 	Message string `json:"message"`
+	Details any    `json:"details,omitempty"`
 }
 
-func (e *Error) Error() string                    { return e.Code }
-func New(status int, code, message string) *Error { return &Error{status, code, message} }
-func Invalid(message string) *Error               { return New(400, "INVALID_REQUEST", message) }
+func (e *Error) Error() string { return e.Code }
+func New(status int, code, message string) *Error {
+	return &Error{Status: status, Code: code, Message: message}
+}
+func Invalid(message string) *Error { return New(400, "INVALID_REQUEST", message) }
 func Unavailable() *Error {
 	return New(503, "DEPENDENCY_UNAVAILABLE", "Required dependency is unavailable")
 }

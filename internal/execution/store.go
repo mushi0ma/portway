@@ -26,7 +26,7 @@ func (s Store) Check(ctx context.Context) error {
 	if !ok {
 		return errors.New("execution role must be isolated")
 	}
-	_, err = s.Pool.Exec(ctx, `SELECT id FROM portway_execution.chains LIMIT 0`)
+	_, err = s.Pool.Exec(ctx, `SELECT r.events_pruned_through,a.id FROM portway_execution.runs r LEFT JOIN portway_execution.approvals a ON a.installation_id=r.installation_id AND a.run_id=r.id LIMIT 0`)
 	return err
 }
 func (s Store) Lookup(ctx context.Context, owner, id string, run bool) (Chain, error) {
@@ -128,6 +128,17 @@ func (s Store) persist(ctx context.Context, tx pgx.Tx, c Chain, ev []Event) erro
 	_, err = tx.Exec(ctx, `UPDATE portway_execution.chains SET state=$3,body=$4 WHERE installation_id=$1 AND id=$2`, s.Installation, c.ID, c.State, json.RawMessage(b))
 	if err != nil {
 		return err
+	}
+	for _, r := range c.Runs {
+		// Resolve prior approvals before inserting a new pending proposal; the
+		// partial unique index guarantees one pending action per run.
+		for _, a := range r.Approvals {
+			_, err = tx.Exec(ctx, `INSERT INTO portway_execution.approvals(installation_id,id,run_id,state,expires_at) VALUES($1,$2,$3,$4,$5)
+			 ON CONFLICT(installation_id,id) DO UPDATE SET state=EXCLUDED.state`, s.Installation, a.ID, r.ID, a.State, a.ExpiresAt)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	for _, e := range ev {
 		b, err = json.Marshal(e)
@@ -279,35 +290,8 @@ func (s Store) Stop(ctx context.Context, owner, id, key string, run bool) (Chain
 	return c, tx.Commit(ctx)
 }
 func (s Store) History(ctx context.Context, owner, run string, after int64) ([]Event, error) {
-	c, err := s.Lookup(ctx, owner, run, true)
-	if err != nil {
-		return nil, err
-	}
-	r, _ := c.Find(run)
-	if after < 0 {
-		return nil, problem.New(400, "INVALID_CURSOR", "Invalid event sequence")
-	}
-	if after > r.Seq {
-		return nil, conflict("CURSOR_AHEAD")
-	}
-	rows, err := s.Pool.Query(ctx, `SELECT body FROM portway_execution.events WHERE installation_id=$1 AND run_id=$2 AND seq>$3 AND seq<=$4 ORDER BY seq LIMIT 100`, s.Installation, run, after, r.Seq)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []Event{}
-	for rows.Next() {
-		var b []byte
-		var e Event
-		if err = rows.Scan(&b); err != nil {
-			return nil, err
-		}
-		if err = json.Unmarshal(b, &e); err != nil {
-			return nil, err
-		}
-		out = append(out, e)
-	}
-	return out, rows.Err()
+	p, err := s.HistoryPage(ctx, owner, run, after)
+	return p.Items, err
 }
 
 // Reconcile is called at process startup under the dedicated singleton lock.

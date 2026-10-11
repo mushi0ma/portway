@@ -26,10 +26,13 @@ type Envelope struct {
 }
 
 func (e Envelope) Validate(now time.Time) error {
-	if e.SchemaVersion != 1 || e.Producer != "execution" || !secure.UUID(e.EventID) || !secure.UUID(e.InstallationID) || !secure.UUID(e.AggregateID) || !secure.UUID(e.CorrelationID) || e.Payload.ID != e.EventID || e.Payload.RunID != e.AggregateID || e.Payload.CorrelationID != e.CorrelationID || e.Payload.Type != e.Type || e.Payload.SchemaVersion != 1 || e.Payload.Seq < 1 || !e.Payload.ServerTime.Equal(e.OccurredAt) || (e.Type != "run.created" && e.Type != "run.state_changed") || e.OccurredAt.Before(now.Add(-24*time.Hour)) || e.OccurredAt.After(now.Add(time.Minute)) {
+	if e.SchemaVersion != 1 || e.Producer != "execution" || !secure.UUID(e.EventID) || !secure.UUID(e.InstallationID) || !secure.UUID(e.AggregateID) || !secure.UUID(e.CorrelationID) || e.Payload.ID != e.EventID || e.Payload.RunID != e.AggregateID || e.Payload.CorrelationID != e.CorrelationID || e.Payload.Type != e.Type || e.Payload.SchemaVersion != 1 || e.Payload.Seq < 1 || !e.Payload.ServerTime.Equal(e.OccurredAt) || !eventType(e.Type) || e.OccurredAt.Before(now.Add(-24*time.Hour)) || e.OccurredAt.After(now.Add(time.Minute)) {
 		return errors.New("invalid execution event")
 	}
 	return nil
+}
+func eventType(kind string) bool {
+	return kind == "run.created" || kind == "run.state_changed" || kind == "approval_requested" || kind == "approval.resolved"
 }
 func (s Store) RelayOne(ctx context.Context, publish func(context.Context, Envelope) error) (bool, error) {
 	tx, err := s.Pool.Begin(ctx)

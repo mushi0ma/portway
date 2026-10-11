@@ -206,7 +206,9 @@ func TestBackend(t *testing.T) {
 	}.Handler())
 	defer execAPI.Close()
 	c.ExecutionURL = execAPI.URL
-	api := httptest.NewServer(transport.New(c, app, logger).Handler())
+	api := httptest.NewUnstartedServer(transport.New(c, app, logger).Handler())
+	api.Config.WriteTimeout = 25 * time.Second
+	api.Start()
 	controlURL = api.URL
 	defer api.Close()
 	client := api.Client()
@@ -431,8 +433,11 @@ func TestBackend(t *testing.T) {
 			}
 		}
 	}
+	exerciseApprovals(t, ctx, execution.Store{Pool: execDB.Pool, Installation: installation}, client, api.URL, one, two)
+	streamClosed := exerciseSSE(t, ctx, execution.Store{Pool: execDB.Pool, Installation: installation}, root, client, api.URL, one, auth)
 	code, _, b = call("DELETE", "/v1/devices/"+one.DeviceID, "", two.Session.AccessToken, two.DeviceProof, "revoke-device-one", nil)
 	want(t, code, 200, b)
+	streamClosed()
 	code, _, b = call("GET", "/v1/me", "", token, proof, "", nil)
 	want(t, code, 401, b)
 	code, _, b = call("POST", "/v1/auth/refresh", `{"refresh_token":"refresh-marker"}`, "", proof, "", nil)

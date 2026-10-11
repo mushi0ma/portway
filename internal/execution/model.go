@@ -51,6 +51,7 @@ type Run struct {
 	Budget    Budget        `json:"budgets"`
 	Steps     []Step        `json:"steps"`
 	Seq       int64         `json:"snapshot_seq"`
+	Approvals []Approval    `json:"approvals,omitempty"`
 }
 
 // RunSummary bounds collection responses; full pinned instructions are fetched by ID.
@@ -272,6 +273,7 @@ func (c *Chain) Stop(id string, now time.Time) ([]Event, error) {
 			r.State = "stopping"
 			r.StopEpoch++
 			r.Version++
+			out = append(out, c.cancelApprovals(r, now)...)
 			out = append(out, c.event(r, "run.state_changed", now))
 		}
 	}
@@ -322,6 +324,7 @@ func (c *Chain) Reconcile(now time.Time) []Event {
 		r.Reason = "interrupted"
 		r.StopEpoch++
 		r.Version++
+		out = append(out, c.cancelApprovals(r, now)...)
 		out = append(out, c.event(r, "run.state_changed", now))
 	}
 	c.StopEpoch++

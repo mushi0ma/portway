@@ -6,10 +6,12 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"portway/internal/httpjson"
 	"portway/internal/problem"
 	"portway/internal/secure"
 )
@@ -72,6 +74,38 @@ func (h HTTPServer) Handler() http.Handler {
 		}
 		path := strings.TrimPrefix(r.URL.Path, "/internal/v1/")
 		parts := strings.Split(path, "/")
+		if parts[0] == "approvals" {
+			if r.URL.RawQuery != "" {
+				write(0, nil, problem.Invalid("Query parameters are not supported"))
+				return
+			}
+			if len(parts) == 1 && r.Method == "GET" {
+				items, err := h.Store.ListApprovals(ctx, a.OwnerID)
+				write(200, map[string]any{"items": items, "server_time": time.Now().UTC()}, err)
+				return
+			}
+			if len(parts) < 2 || !secure.UUID(parts[1]) {
+				write(0, nil, problem.NotFound())
+				return
+			}
+			if len(parts) == 2 && r.Method == "GET" {
+				out, err := h.Store.GetApproval(ctx, a.OwnerID, parts[1])
+				write(200, out, err)
+				return
+			}
+			if len(parts) == 3 && parts[2] == "decision" && r.Method == "POST" {
+				var d Decision
+				if err := httpjson.Decode(w, r, &d); err != nil {
+					write(0, nil, err)
+					return
+				}
+				out, err := h.Store.DecideApproval(ctx, a.OwnerID, a.DeviceID, parts[1], r.Header.Get("Idempotency-Key"), d)
+				write(200, out, err)
+				return
+			}
+			write(0, nil, problem.NotFound())
+			return
+		}
 		if path == "runs" {
 			switch r.Method {
 			case "GET":
@@ -102,7 +136,7 @@ func (h HTTPServer) Handler() http.Handler {
 				if terminal(run.State) {
 					code = 200
 				}
-				write(code, run, nil)
+				write(code, run.View(), nil)
 			} else {
 				if terminal(c.State) {
 					code = 200
@@ -112,13 +146,18 @@ func (h HTTPServer) Handler() http.Handler {
 			return
 		}
 		if len(parts) == 3 && parts[2] == "events" && isRun && r.Method == "GET" {
-			after, err := strconv.ParseInt(r.URL.Query().Get("after"), 10, 64)
-			if err != nil {
+			query, err := url.ParseQuery(r.URL.RawQuery)
+			if err != nil || len(query) != 1 || len(query["after"]) != 1 {
+				write(0, nil, problem.New(400, "INVALID_CURSOR", "Only one after parameter is accepted"))
+				return
+			}
+			after, err := strconv.ParseInt(query.Get("after"), 10, 64)
+			if err != nil || strconv.FormatInt(after, 10) != query.Get("after") {
 				write(0, nil, problem.New(400, "INVALID_CURSOR", "Invalid event sequence"))
 				return
 			}
-			out, err := h.Store.History(ctx, a.OwnerID, id, after)
-			write(200, map[string]any{"items": out}, err)
+			out, err := h.Store.HistoryPage(ctx, a.OwnerID, id, after)
+			write(200, out, err)
 			return
 		}
 		if len(parts) != 2 || r.Method != "GET" {
@@ -132,7 +171,7 @@ func (h HTTPServer) Handler() http.Handler {
 		}
 		if isRun {
 			run, _ := c.Find(id)
-			write(200, run, nil)
+			write(200, run.View(), nil)
 		} else {
 			write(200, c, nil)
 		}

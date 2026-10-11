@@ -4,19 +4,23 @@
 
 **11.10.2026, Asia/Almaty. Первый срез: Go foundation / identity / agent configuration.** Нормативная база остаётся в ТЗ/SRS/MoSCoW; этот файл фиксирует код и доступные свидетельства. Реализация первого среза не означает приёмку полного MVP.
 
-> Новый срез: [execution foundation](23-execution-foundation.md) и [отдельный Docker Funnel](../deploy/tailscale/README.md). Код, Docker integration/smoke и живой запуск проверены; подробности в протоколе нового среза. Production run admission остаётся закрытым.
+> Бизнес-срез 12.10: [согласование действий](25-approval-workflow.md): чтение pending, неизменяемые параметры, approve/reject с CAS, TTL и stop/restart invalidation. Approved не означает executed; Runtime grants и FCM ещё не подключены.
+
+> Срез 12.10: [SSE и retention execution](24-execution-sse-retention.md). Проверки и развёртывание фиксируются в отдельном протоколе; допуск model/tool исполнения остаётся закрытым.
+
+> Предыдущий срез: [execution foundation](23-execution-foundation.md) и [отдельный Docker Funnel](../deploy/tailscale/README.md). Код, Docker integration/smoke и живой запуск проверены; подробности в протоколе нового среза. Production run admission остаётся закрытым.
 
 ## Выполнено в коде
 
 | Область | Код / проверка | Связь с проектом и остаток |
 |---|---|---|
-| Go и Docker | `cmd/portway`, Dockerfile, основной и тестовый Compose, Makefile, GitHub Actions | BL-001/002/006, DOC-020/052. Backend builds и проверки подготовлены; удалённый CI/APK не выполнены |
-| БД | `internal/storage`, миграции 001–005; закрытые схемы, отдельная app role, checksum, транзакционный migration lock | BL-004, DOC-029. Fresh/repeat/checksum/upgrade проверяются на disposable PostgreSQL; миграции применены в рабочей Supabase; роль API и TLS проверены |
-| Identity | `internal/identity`, Supabase HTTP adapter, JWKS/legacy verification, setup/confirmation, owner/device guard, login/refresh/logout/revoke | BL-100/121/123/124, FR-001–004/081/084/085 частично. Auth settings endpoint проверен; реальный signup/email, Android, SSE и push unlink ещё не проверены/не реализованы |
+| Go и Docker | `cmd/portway`, Dockerfile, основной и тестовый Compose, Makefile, GitHub Actions | BL-001/002/006, DOC-020/052. Backend Docker/CI проверен локально и в GitHub Actions; APK ещё не реализован |
+| БД | `internal/storage`, миграции 001–007 в коде; закрытые схемы, отдельная app role, checksum, транзакционный migration lock | BL-004, DOC-029. Fresh/repeat/checksum/upgrade проверяются на disposable PostgreSQL; миграции применены в рабочей Supabase; роль API и TLS проверены |
+| Identity | `internal/identity`, Supabase HTTP adapter, JWKS/legacy verification, setup/confirmation, owner/device guard, login/refresh/logout/revoke | BL-100/121/123/124, FR-001–004/081/084/085 частично. Auth settings endpoint проверен; реальный signup/email, Android и push unlink ещё не проверены/не реализованы; SSE проверяет JWT/device при каждой порции |
 | Агенты и роли | `internal/agents`, HTTP API, 5+3 presets, строгая config/policy валидация, immutable versions, ETag | BL-010/011/012/014. Проверены сохранение, чтение, идемпотентность и гонки; pinning в run и runtime policy ещё впереди |
 | Providers/secrets | Allowlisted configuration, capabilities initially unknown, AES-256-GCM с AAD/nonce, metadata-only reads | BL-020/025 частично, DOC-040. Реального LLM/probe нет; rotation/restore ещё не реализованы |
 | Kafka / доставка аудита | `cmd/events`, `internal/events`, `compose.kafka.yaml`, migration 004 | D-22 / DOC-022, BL-061 частично. Relay → реальный Kafka → private audit projection; duplicate/crash/offset и права проверены. Execution/FCM/query API/DLQ ещё впереди |
-| Execution state | `cmd/execution`, `internal/execution`, migration 005, private HTTP + Kafka | D-22; BL-030/032/033/064/065 частично. Собственные run/chain, бюджеты, stop epochs, восстановление, history/outbox; Runtime, модельные вызовы, approvals, SSE и downstream consumers ещё впереди |
+| Execution state | `cmd/execution`, `internal/execution`, migration 005, private HTTP + Kafka | D-22; BL-030/032/033/064/065 частично. Собственные run/chain, бюджеты, stop epochs, восстановление, history/outbox; SSE/replay/watermark и bounded retention добавлены; Согласования approve/reject/TTL/stop реализованы; Runtime, модельные вызовы и downstream consumers ещё впереди |
 | Аудит и status | Append-only app permissions, атомарный audit с mutation, курсор, readiness по операциям | BL-103/104 частично. Run/chain context, persistent application logs, dependency probes и retention cleanup ещё впереди |
 | HTTP контракт | `api/openapi.json`, strict UTF-8/JSON/duplicate/unknown checks, безопасные ошибки и request IDs | DOC-036: исполняемый OpenAPI 3.1 JSON для реализованного подмножества. Полный проектный каталог маршрутов не выдаётся за готовый API |
 
@@ -36,7 +40,7 @@
 
 ## Следующий обязательный срез
 
-1. Завершить admission/dispatch execution: Runtime и model capability checks, актуальная device/epoch проверка перед выдачей grants; Harness с отменой, approvals, SSE с durable cursor и потребители execution events. Транзакционные run/chain/budget/history/outbox уже добавлены.
+1. Завершить admission/dispatch execution: Runtime и model capability checks, актуальная device/epoch проверка перед выдачей grants; Harness с отменой, выдача grants по одобренным действиям и потребители execution events. SSE с durable cursor уже реализован; измерение p95 через публичный HTTPS и Android ещё впереди. Транзакционные run/chain/budget/history/outbox уже добавлены.
 2. Отдельный trusted Runtime Manager через Unix socket: rootless engine, scoped grants, workspace, allowlist образов, limits и реальная изоляция. API по-прежнему без Docker socket.
 3. Реальный LLM adapter/capability probes и MCP документации; policy, approval TTL 180 секунд, stop/fencing/recovery.
 4. Links/hooks, отдельный reviewer, immutable Result; FCM/device tokens, пакеты staging/activation; затем Flutter Android и полные реальные TC/AC.

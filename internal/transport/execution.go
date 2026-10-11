@@ -33,6 +33,15 @@ func (s *Server) executionProxy(w http.ResponseWriter, r *http.Request, p identi
 				return 0, nil, err
 			}
 			body = []byte("{}")
+		} else if strings.HasSuffix(r.URL.Path, "/decision") {
+			var decision execution.Decision
+			if err := Decode(w, r, &decision); err != nil {
+				return 0, nil, err
+			}
+			if err := decision.Validate(); err != nil {
+				return 0, nil, err
+			}
+			body, _ = json.Marshal(decision)
 		} else {
 			// Validate the public DTO before returning the closed admission response.
 			var in struct {

@@ -1,0 +1,50 @@
+Portway execution SSE, retention and approval decisions
+Date: 2026-10-12 (Asia/Almaty)
+
+Implementation:
+- Public SSE replay/live, run:seq cursors, bounded stream/write/poll limits.
+- Live owner/device/JWT checks; expired history gives 410 before streaming.
+- Migration 006: MVCC replay watermark, bounded cleanup and maintenance log.
+- Migration 007: private approval index and one pending proposal per run.
+- Approval read/list/decision, immutable command hash, 180-second expiry,
+  version and idempotency conflicts, stop/restart invalidation.
+- Approval lifecycle facts use existing execution Kafka outbox and SSE.
+- API OpenAPI 0.4.0; public run admission remains closed.
+
+Docker verification:
+Full format/vet/race/contract/PostgreSQL+Kafka integration: PASS.
+Business integration duration: 40.290 seconds.
+TestBackend (real service HTTP and PostgreSQL; fixture Supabase Auth): PASS.
+  Includes two-device approve/reject race; exactly one outcome; idempotent
+  repeats and key conflict; stop cannot revive approved tool; expired decision
+  persists after HTTP 422; owner-only arguments, safe event payloads.
+SSE integration: PASS.
+  Replay and live events; reconnect from last ID; invalid/foreign/ahead cursor;
+  missing credentials; four-stream bound; 410 with recovery cursor; 26-second
+  open connection survives production request/write timeouts; token expiry
+  and device revoke close the existing stream within the five-second bound.
+Retention integration: PASS.
+  246-event fixture; 100-item history pages; protected active chains and pending
+  outbox; fresh ACK retained; contiguous prefix only; exact 200-row batches;
+  rollback when maintenance audit fails; concurrent cleanup/replay yields a
+  consistent page or 410; expired keys and maintenance retention.
+Existing migration checksum, identity upgrade, Kafka audit and execution
+  duplicate ACK/crash tests: PASS.
+Domain tests: PASS, including exact expiry boundary, changed arguments/version,
+  duplicate/opposite decision, stopped/restarted/deadline/budget invalidation,
+  forbidden tool and working directory, replay without duplicate events.
+
+First SSE integration attempt exposed test-client reconnect racing asynchronous
+server slot release; the test now waits for the released slot. Re-run passed.
+No production authorization bypass was added.
+
+Credential scan before publication: 126 candidate files, zero matches against
+configured private key/token/DSN/password values. .env and .idea stay ignored.
+
+Production image smoke: PASS (non-root/read-only, migrations, auth guard,
+expected readiness, restart). Production builds of API/events/execution: PASS.
+Final startup schema probe also checks the approval index (migration 007).
+Deployment results are recorded below after execution.
+No production owner/signup/email, business runs, model billing or commands are
+created by these checks. Real authorized SSE through Funnel, physical Android,
+SSE p95, Runtime isolation/stop and push delivery remain unverified.

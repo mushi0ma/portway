@@ -90,7 +90,7 @@ report('Supabase Auth publishable key and email confirmation', code == 200 and b
 port = services['api']['ports'][0]['published']
 endpoints = [] if '--private-only' in sys.argv else [('local API', 'http://127.0.0.1:' + str(port)), ('public API', api['PORTWAY_PUBLIC_URL'].rstrip('/'))]
 for label, base in endpoints:
-    for path, expected_status in [('/healthz', 200), ('/v1/client-config', 200), ('/v1/agents', 401), ('/v1/runs', 401), ('/auth/confirm', 400), ('/readyz', 503)]:
+    for path, expected_status in [('/healthz', 200), ('/v1/client-config', 200), ('/v1/agents', 401), ('/v1/runs', 401), ('/v1/runs/30000000-0000-4000-8000-000000000001/events', 401), ('/auth/confirm', 400), ('/readyz', 503)]:
         code, body = http(base + path)
         ok = code == expected_status
         if path == '/v1/client-config':

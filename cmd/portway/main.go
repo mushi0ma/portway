@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -93,7 +94,7 @@ func run() error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	api := transport.New(c, store, log)
-	httpServer := &http.Server{Addr: c.HTTPAddr, Handler: api.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 25 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
+	httpServer := &http.Server{Addr: c.HTTPAddr, Handler: api.Handler(), BaseContext: func(net.Listener) context.Context { return ctx }, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 25 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
 	done := make(chan error, 1)
 	go func() { done <- httpServer.ListenAndServe() }()
 	log.Info("API started", "stage", "foundation", "version", version, "revision", revision)

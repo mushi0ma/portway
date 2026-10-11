@@ -125,6 +125,7 @@ func run() error {
 	}()
 	slog.Info("execution service started", "run_admission", false)
 	failed := false
+	nextCleanup := time.Time{}
 	for ctx.Err() == nil {
 		op, end := context.WithTimeout(ctx, 10*time.Second)
 		if err := leader.Conn().Ping(op); err != nil {
@@ -138,6 +139,22 @@ func run() error {
 			slog.Error("execution event relay blocked; records retained")
 		}
 		failed = err != nil
+		expireCtx, expireCancel := context.WithTimeout(ctx, 3*time.Second)
+		if err := store.ExpirePending(expireCtx); err != nil {
+			slog.Error("approval expiry reconciliation failed")
+		}
+		expireCancel()
+		if time.Now().After(nextCleanup) {
+			cleanupCtx, cleanupCancel := context.WithTimeout(ctx, 5*time.Second)
+			report, cleanupErr := store.Cleanup(cleanupCtx)
+			cleanupCancel()
+			nextCleanup = time.Now().Add(time.Minute)
+			if cleanupErr != nil {
+				slog.Error("execution retention failed; transaction rolled back")
+			} else if report.Changed() {
+				slog.Info("execution retention completed", "events_deleted", report.EventsDeleted, "keys_deleted", report.KeysDeleted, "logs_deleted", report.LogsDeleted)
+			}
+		}
 		if !progressed {
 			timer := time.NewTimer(2 * time.Second)
 			select {

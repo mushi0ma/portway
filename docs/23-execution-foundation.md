@@ -27,11 +27,11 @@ Chain aggregate хранится в JSONB с отдельным индексом
 
 ## События и Kafka
 
-Собственная history хранит per-run `seq` и safe lifecycle payload. Snapshot и его seq находятся в одном JSON aggregate; history query ограничивается этим high-water. Внутреннее чтение `events?after=N` возвращает до 100 записей, cursor ahead →409. Публичный SSE, watermark/410 и retention cleanup этого сервиса ещё не реализованы; `snapshot_seq` пока не является готовым SSE-контрактом.
+Собственная history хранит per-run `seq` и safe lifecycle payload. Snapshot и его seq находятся в одном JSON aggregate; history query ограничивается этим high-water. Внутреннее чтение `events?after=N` возвращает до 100 записей, cursor ahead →409. Срез от 12.10 добавляет [публичный SSE, watermark/410 и retention](24-execution-sse-retention.md). GET run и stop run возвращают `snapshot_cursor` наряду с `snapshot_seq`.
 
 Relay внутри процесса execution публикует `portway.execution.events.v1` с `acks=all`, затем отмечает outbox published. Key = installation/chain; crash после ACK до DB commit даёт прежний event ID повторно. Topic имеет 3 partitions и такой же dev retention, как control audit. В payload нет task, agent instructions, provider credentials или JWT. Admission fixture блокируется при 10 000 pending либо backlog старше 24 часов; stop разрешён и при недоступном брокере. Relay не удаляет просроченные pending события и блокируется для operator reconciliation.
 
-Отдельный consumer execution events для audit-query/notifications ещё впереди; наличие topic не означает готовые downstream effects. Pending и опубликованные execution history/outbox пока не очищаются: retention и bounded cleanup должны быть добавлены до открытия production admission.
+Отдельный consumer execution events для audit-query/notifications ещё впереди; наличие topic не означает готовые downstream effects. Pending outbox сохраняется до операторской сверки. Опубликованные execution history/outbox терминальной chain очищаются непрерывным префиксом не раньше семи суток от события и ACK; watermark и cleanup audit обновляются той же транзакцией. Подробности — [SSE/retention](24-execution-sse-retention.md).
 
 ## Развёртывание
 
@@ -50,4 +50,4 @@ Provisioner создаёт только отсутствующие роли, с�
 
 ## Оставшиеся обязательные части
 
-Следующий срез — Runtime Manager/scoped grants, настоящие capability checks и Harness dispatch; затем approvals TTL/CAS, отмена внешней работы и fencing, SSE с проверкой device ≤5 секунд, durable results, дочерние runs/links/hooks, notifications/FCM и audit-query. Базовая state machine не заменяет эти механизмы и не подтверждает NFR-009 (фактическая остановка процессов ≤5 секунд).
+Следующий срез — Runtime Manager/scoped grants, настоящие capability checks и Harness dispatch; затем подключение [согласований TTL/CAS](25-approval-workflow.md) к dispatch, отмена внешней работы и fencing, измерение SSE p95 через реальный HTTPS-маршрут, durable results, дочерние runs/links/hooks, notifications/FCM и audit-query. Базовая state machine не заменяет эти механизмы и не подтверждает NFR-009 (фактическая остановка процессов ≤5 секунд).
