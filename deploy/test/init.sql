@@ -1,0 +1,6 @@
+-- Disposable isolated test database only. No production credentials.
+CREATE ROLE portway_app LOGIN PASSWORD 'disposable-app-password'
+ NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+CREATE ROLE portway_anonymous NOLOGIN;
+CREATE ROLE portway_relay LOGIN PASSWORD 'disposable-relay-password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+CREATE ROLE portway_audit LOGIN PASSWORD 'disposable-audit-password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;

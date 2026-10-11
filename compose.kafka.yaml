@@ -1,0 +1,91 @@
+# Local, single-host broker. Never attach untrusted run sandboxes to eventbus.
+services:
+  kafka:
+    image: &kafka-image apache/kafka:4.3.1@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
+    hostname: kafka
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 200
+    environment:
+      CLUSTER_ID: pOrTwAyLoCaLBrokEr00001
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_BYTES: 67108864
+      KAFKA_LOG_SEGMENT_BYTES: 8388608
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 60000
+      KAFKA_NUM_NETWORK_THREADS: 2
+      KAFKA_NUM_IO_THREADS: 2
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx256m
+      KAFKA_LOG4J_OPTS: -Dlog4j2.configurationFile=/opt/kafka/config/log4j2.yaml
+    volumes: [kafka-data:/var/lib/kafka]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m,uid=1000,gid=1000
+      - /opt/kafka/config:rw,nosuid,size=16m,uid=1000,gid=1000
+      - /opt/kafka/logs:rw,nosuid,size=32m,uid=1000,gid=1000
+    networks: [eventbus]
+    healthcheck:
+      test: [CMD-SHELL, "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      start_period: 45s
+      retries: 8
+    restart: unless-stopped
+    stop_grace_period: 30s
+  kafka-init:
+    image: *kafka-image
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 384m
+    environment:
+      KAFKA_HEAP_OPTS: -Xms64m -Xmx128m
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=64m,uid=1000,gid=1000"]
+    entrypoint: [/opt/kafka/bin/kafka-topics.sh]
+    command:
+      - --bootstrap-server
+      - kafka:9092
+      - --create
+      - --if-not-exists
+      - --topic
+      - portway.control.audit.v1
+      - --partitions
+      - "3"
+      - --replication-factor
+      - "1"
+      - --config
+      - retention.ms=604800000
+      - --config
+      - retention.bytes=67108864
+      - --config
+      - segment.bytes=8388608
+      - --config
+      - min.insync.replicas=1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks: [eventbus]
+    restart: "no"
+networks:
+  eventbus:
+    internal: true
+volumes:
+  kafka-data:

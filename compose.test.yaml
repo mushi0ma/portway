@@ -1,0 +1,38 @@
+name: portway-backend-test
+include: [compose.kafka.yaml]
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: disposable-migration-password
+      POSTGRES_DB: portway_test
+    tmpfs: [/var/lib/postgresql/data]
+    volumes:
+      - ./deploy/test/init.sql:/docker-entrypoint-initdb.d/001-roles.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d portway_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks: [test]
+  tests:
+    build:
+      context: .
+      target: test
+    environment:
+      TEST_DATABASE_URL: postgres://postgres:disposable-migration-password@postgres:5432/portway_test?sslmode=disable
+      TEST_APP_DATABASE_URL: postgres://portway_app:disposable-app-password@postgres:5432/portway_test?sslmode=disable
+      PORTWAY_REQUIRE_INTEGRATION: "1"
+      TEST_RELAY_DATABASE_URL: postgres://portway_relay:disposable-relay-password@postgres:5432/portway_test?sslmode=disable
+      TEST_AUDIT_DATABASE_URL: postgres://portway_audit:disposable-audit-password@postgres:5432/portway_test?sslmode=disable
+      TEST_KAFKA_BROKERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    networks: [test, eventbus]
+networks:
+  test:
+    internal: true

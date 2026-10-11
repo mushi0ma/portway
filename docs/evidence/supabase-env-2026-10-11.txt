@@ -1,0 +1,27 @@
+Portway Supabase configuration verification
+Date: 2026-10-11 (Asia/Almaty)
+
+make docker-test: PASS (exit 0)
+Includes gofmt, go vet, unit race tests, OpenAPI contract tests,
+HTTP/Auth fixture/PostgreSQL integration race tests, migration upgrade/checksum,
+and static Go binary build.
+
+New checks: environment or _FILE configuration, ambiguous inputs rejected,
+no secret values in errors, small default pool (2, min 0), range 1..8,
+explicit sb_secret key rejected as publishable key.
+
+make docker-smoke: PASS (exit 0)
+Production image: 651b4d82c05c
+Non-root/read-only image, migration, health/auth guard, explicit readiness=503,
+process restart. Uses disposable PostgreSQL and _FILE fixture credentials.
+
+Main compose validation with public placeholder env: PASS
+API receives no migration DSN; pool caps API=2/migrate=1;
+non-root/read-only and no Docker socket mount.
+Local .env permissions=0600 and git check-ignore: PASS
+Local installation ID, master key, setup token generated without value output.
+
+Actual Supabase connection/Auth email/production migrations: NOT_RUN
+Reason: project credentials are not yet supplied.
+Microservices/Kafka: architectural decision D-22 recorded; implementation pending.
+No full MVP acceptance claimed.

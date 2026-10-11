@@ -1,0 +1,44 @@
+Portway Tailscale Funnel deployment verification
+Date: 2026-10-11 (Asia/Almaty)
+
+Supersedes the public-tunnel DNS blocker in live-deployment-2026-10-11.txt.
+User updated PORTWAY_PUBLIC_URL in ignored .env.
+Public URL: https://cachyos-x8664.tail1443b8.ts.net
+Origin: http://127.0.0.1:8080
+
+docker compose up -d --no-deps --wait --wait-timeout 60 api: PASS
+tailscale funnel status: Funnel on; root path proxies to the stated origin.
+Docker api / kafka / outbox-relay / audit: running, healthy.
+Tailscale runs on the host; no Tailscale node/container migration performed.
+
+python3 scripts/check-live.py (make check-live target): PASS
+- API / relay / audit DB credentials: verified TLS, restricted service roles.
+- Four migration versions/checksums match local SQL files.
+- Business schemas closed to Supabase anon/authenticated roles.
+- Supabase Auth settings: HTTP 200; email confirmation required.
+- Both local and configured HTTPS endpoints:
+  /healthz: HTTP 200
+  /v1/client-config: HTTP 200; installation matches .env
+  /v1/agents without credentials: HTTP 401
+  /auth/confirm without token: HTTP 400
+  /readyz: HTTP 503 (expected; execution not implemented)
+- Relay and audit readiness: PASS (DB + Kafka).
+
+Independent public route check: PASS
+Host DNS includes non-global addresses, so the preceding URL checks alone do
+not prove public internet reachability. Resolved the public hostname through
+https://dns.google/resolve (type A), then used curl --resolve with a global
+answer and --noproxy '*' to bypass local MagicDNS/proxy settings. HTTPS SNI,
+hostname and CA verification remained enabled; no insecure TLS option used.
+All five routes returned the expected statuses above; client-config matched
+the configured installation. Only unauthenticated read-only requests sent.
+
+Supabase Dashboard URL Configuration and confirmation template: NOT_VERIFIED.
+Required Site URL: https://cachyos-x8664.tail1443b8.ts.net
+Required Redirect URL: https://cachyos-x8664.tail1443b8.ts.net/auth/confirm
+Actual owner signup / email / deep-link end-to-end: NOT_RUN.
+Physical phone route, restart of host/Tailscale, and SSE: NOT_RUN.
+No emails sent, no synthetic business events inserted, no secrets recorded.
+
+Changes in this step: deployment environment applied, operating documentation
+updated. No Go source, database schema, or worker behavior changes.

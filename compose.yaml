@@ -1,0 +1,83 @@
+name: portway
+include: [compose.kafka.yaml]
+
+x-common: &common
+  image: portway-api:${PORTWAY_VERSION:-dev}
+  build:
+    context: .
+    target: runtime
+    args:
+      VERSION: ${PORTWAY_VERSION:-dev}
+      REVISION: ${PORTWAY_REVISION:-unknown}
+  user: "65532:65532"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 100
+  mem_limit: 256m
+  cpus: 1
+  environment: &environment
+    PORTWAY_ENV: production
+    PORTWAY_HTTP_ADDR: 0.0.0.0:8080
+    PORTWAY_INSTALLATION_ID: ${PORTWAY_INSTALLATION_ID:?Set installation UUID in .env}
+    PORTWAY_INSTALLATION_NAME: ${PORTWAY_INSTALLATION_NAME:-Portway}
+    PORTWAY_PUBLIC_URL: ${PORTWAY_PUBLIC_URL:?Set HTTPS URL in .env}
+    PORTWAY_AUTH_URL: ${PORTWAY_AUTH_URL:?Set Supabase auth URL in .env}
+    PORTWAY_AUTH_PUBLISHABLE_KEY: ${PORTWAY_AUTH_PUBLISHABLE_KEY:?Set publishable key in .env}
+    PORTWAY_DATABASE_URL: ${PORTWAY_DATABASE_URL:?Set application-role PostgreSQL URL in .env}
+    PORTWAY_DATABASE_MAX_CONNS: ${PORTWAY_DATABASE_MAX_CONNS:-2}
+    PORTWAY_MASTER_KEY: ${PORTWAY_MASTER_KEY:?Run make init-env}
+    PORTWAY_SETUP_TOKEN: ${PORTWAY_SETUP_TOKEN:?Run make init-env}
+    PORTWAY_LLM_ALLOWED_ENDPOINTS: ${PORTWAY_LLM_ALLOWED_ENDPOINTS:-}
+  volumes:
+    - ./deploy/certs:/etc/portway/certs:ro
+
+x-worker: &worker
+  <<: *common
+  image: portway-events:${PORTWAY_VERSION:-dev}
+  build:
+    context: .
+    target: events-runtime
+  networks: [default, eventbus]
+  stop_grace_period: 20s
+  restart: unless-stopped
+  environment: &worker-environment
+    PORTWAY_INSTALLATION_ID: ${PORTWAY_INSTALLATION_ID:?Set installation UUID in .env}
+    PORTWAY_KAFKA_BROKERS: kafka:9092
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    kafka-init:
+      condition: service_completed_successfully
+
+services:
+  migrate:
+    <<: *common
+    command: [migrate]
+    environment:
+      <<: *environment
+      PORTWAY_MIGRATION_DATABASE_URL: ${PORTWAY_MIGRATION_DATABASE_URL:?Set migration PostgreSQL URL in .env}
+      PORTWAY_DATABASE_MAX_CONNS: "1"
+    healthcheck:
+      disable: true
+    restart: "no"
+  api:
+    <<: *common
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports: ["127.0.0.1:${PORTWAY_PORT:-8080}:8080"]
+    restart: unless-stopped
+    stop_grace_period: 10s
+  outbox-relay:
+    <<: *worker
+    command: [relay]
+    environment:
+      <<: *worker-environment
+      PORTWAY_DATABASE_URL: ${PORTWAY_RELAY_DATABASE_URL:-}
+  audit:
+    <<: *worker
+    command: [audit]
+    environment:
+      <<: *worker-environment
+      PORTWAY_DATABASE_URL: ${PORTWAY_AUDIT_DATABASE_URL:-}

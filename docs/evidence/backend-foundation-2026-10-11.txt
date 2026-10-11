@@ -1,0 +1,77 @@
+Portway backend foundation verification
+Date: 2026-10-11 (Asia/Almaty)
+Environment: local Docker; disposable PostgreSQL; fake Auth only inside tests
+Go image: golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61
+PostgreSQL image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+Production image ID: sha256:686f93b559db85bec209c467095b536434b0cd04b7f0d2f4b589376a722ba5b8
+Production image configured user: 65532:65532
+Smoke uses current non-root host UID/GID to read temporary 0600 fixture secret files.
+
+make docker-test: PASS (exit 0)
+go vet ./...
+go test -race -count=1 ./internal/...
+ok  	portway/internal/agents	1.014s
+ok  	portway/internal/config	1.010s
+ok  	portway/internal/identity	1.019s
+ok  	portway/internal/secure	1.008s
+ok  	portway/internal/transport	1.012s
+go test -count=1 ./api/...
+ok  	portway/api	0.004s
+PORTWAY_REQUIRE_INTEGRATION=1 go test -race -count=1 -v ./tests/integration/...
+--- PASS: TestBackend (0.36s)
+--- PASS: TestMigrationChecksum (0.02s)
+--- PASS: TestUpgradeFromIdentitySchema (0.09s)
+PASS
+ok  	portway/tests/integration	1.479s
+CGO_ENABLED=0 go build -trimpath -buildvcs=false -o bin/portway ./cmd/portway
+
+make docker-smoke: PASS (exit 0)
+Non-root/read-only image, no daemon socket, migrations, health, public config,
+auth guard, explicit full-readiness 503 and process restart checked.
+Smoke fixture corrected for bridge port publication and ephemeral port reassignment on restart.
+Production compose config validation with placeholders: PASS
+Temporary Portway containers: none remaining
+Remote CI and actual Supabase/FCM/LLM/MCP/Runtime/Android: NOT_RUN
+No whole-MVP TC/AC is claimed passed.
+
+Source manifest SHA-256: 6a5c839b30d83f1a985cf47478e37a091051a0d401fc0c10ca1c6cf7b9e36e82
+Manifest (code/build/config/test source files; excludes documentation and this report):
+ae68dc5c74e0daefd8e51a7edea7ea23f9b6d46cfaa217af74e3b86d4e5be240  .dockerignore
+2944cdf7fa9ded0bcf5e4c61ed6fa3185b1c2f85d9c0751ba87df70e412bff94  .github/workflows/backend.yml
+8ac72e08807a616e7b74ab6d8a654660538c430d509fcb8b429f88962f130a8b  Dockerfile
+80e9c8667d55f8cce717ccc011edc526321402f589796965609f4dba19e474e8  Makefile
+11227e15f97405d58a6fd85f979eb01026fc8a6f427faf167f5bb8d456c18afe  api/contract_test.go
+e9aec31d4ee1f1d19f65ebfa35f6fef0a35a6ca1e46ac6af9b367ef75cd660f8  api/openapi.json
+e2f1ca3b641c7573020868341168b92516b647051ecb8b5bafe728bbc2f1744f  cmd/portway/main.go
+88dd9744ef67afa942eeff8950b20deebd9d9b0c2f741e51ae8485c6a096ef61  compose.test.yaml
+98017e913732f040120d4e33cd5f5d63334a1c3cc7915127dd413ce268e0bf98  compose.yaml
+b9366c97bb0dc8ffb764ea4ab2bf0b1231221410d69bdcb9014b7a5d814ace9a  deploy/test/init.sql
+1544dce3a9535560863249a493af37f62b3516f75c97d16c4da70bdc5d7deef1  go.mod
+100f5df538bf81c13cfda8d884f73916973167a1e0d41d8f2b36a87a9b70eeed  go.sum
+a5081900dde9a800f947d77e51a9e9eb9f7507bbe899814e8067bb9dfd989295  internal/agents/config.go
+7b38a04b7a835bfb6d03c7a905ad6fb0b0b08795626d5f565b7b1d8964a98354  internal/agents/config_test.go
+2f936a44a3d43e9feb0151b26eac4d34dee414c2ff1d706d2c3a5c55d1a965df  internal/agents/service.go
+09ebaa258d70af9076749000051f0ca55c586f62a801f151ce254cccfcaac4c6  internal/config/config.go
+d34ed3a0e0e6fab21299a3613ad5d729ef3e9be180068ca34dbe8aba0760e094  internal/config/config_test.go
+150518977e9717f496620de7ab9c0a45587d3143cbafd3f116bfeccf7cd61240  internal/identity/jwt.go
+7d5e02d1081ee57de38505f92a292c1b8c3f059782354558ead8e6d910a5d715  internal/identity/jwt_test.go
+80962f1300c472a135e1e253a184cd4de90873a1aff894499844ba1498c85a3f  internal/identity/service.go
+541a23870e25474e973da46e03714e5321cce189c69405deb211a8f13f88a4b1  internal/identity/supabase.go
+f21468f42b02ee29f87bd6f43c0091f49eafeeb64acbf5af1c0974128e592264  internal/problem/problem.go
+6078d86ea64ab5e884ffb513d23b49186ab6bc23c8ce18ca01cbb7b10241e140  internal/secure/secure.go
+062339cba36b939205d414b194e28c1272a4aa0a7455acda99a7bdb8a63b4a1f  internal/secure/secure_test.go
+116bb7f319e4b67bc88291a092b09e79fff6fb719405e2da65b3319ee92d1cb9  internal/storage/migrations/001_identity.sql
+290d71be8f68c33d4d1b595132dc13ca74310adf4c2cfff0db6a6b787db680e1  internal/storage/migrations/002_agents.sql
+1300dd0e6dcba4c1cac4fb4572f8fce7d048098af141751e3a40dee5cc666e6e  internal/storage/migrations/003_permissions.sql
+214d0778bf72e15c968891df66f638777736589b58ddb249d5e6e45b5bbb8780  internal/storage/storage.go
+453dfc113c0a616193a3abd6bc9fe564a4679a49e1700481e504ef89c8117773  internal/transport/agents.go
+776087e1542698ba98dfa89f926de043c4430153d0b94425841fba7ef7dd7bc4  internal/transport/identity.go
+62bb11bca12f396bb3ad792c8618828b5029d6d3114c4ac12b0fdc636d4f638a  internal/transport/json.go
+dd9d0a5c79729213bf44243b7b3c494522a4e6261cf904aefce6ec9e00d3b751  internal/transport/json_test.go
+a21d61af0433a8b39c5543b534f40bcf1ed37b78592fca03cbd397b772ed3004  internal/transport/operations.go
+198da3d2c2fe0ce3af276dbbe1624430054bea0329c5373778bd6d52b2222f9d  internal/transport/providers.go
+78ba0cff80dc64f03c5127e687fd6bfe284d3551004e52f22d1a6ed1f2516d24  internal/transport/server.go
+4ba67a273a1445ec38e4388e531c9f62a50771fbfb23d0bd8af3bec4042e65a2  scripts/docker-smoke.sh
+011a4f246ce3ce539fcf467da35105d78fc5c40a0ab44eb93afb4922ec6b6120  scripts/docker-test.sh
+e62263efcce836316e9347b05b42e4097eb72e09dcf416b2a543be2afe6d3e9f  tests/integration/backend_test.go
+0d6ddf5223160d1c646dc77d03909ff6c9e4174d6f604591976d2cda0aa07077  tests/integration/upgrade_test.go

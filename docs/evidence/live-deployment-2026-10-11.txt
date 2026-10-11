@@ -1,0 +1,39 @@
+Portway actual Supabase deployment
+Date: 2026-10-11 (Asia/Almaty)
+
+Supersedes earlier DB-authentication blockers in kafka-audit-2026-10-11.txt.
+User corrected migration/application DSNs. Separate relay/audit roles provisioned;
+credentials remain in ignored .env (0600), no values in this report.
+
+docker compose build: PASS
+Supabase migrations 001-004 applied: PASS
+Remote migration versions/checksums match local source: PASS
+Roles portway_app / portway_relay / portway_audit connect over verified TLS: PASS
+Each role is non-superuser, no BYPASSRLS, no CREATE on its service schema: PASS
+Schemas portway / portway_audit deny USAGE to anon/authenticated: PASS
+Supabase Auth /settings with publishable key: HTTP 200
+Email provider enabled, email confirmation required: PASS
+
+Initial API startup on localhost:8000 failed because aitu-journal-api-1 owns it.
+Other project left unchanged. Portway temporarily configured on localhost:8080.
+API /healthz: HTTP 200
+API /v1/client-config: HTTP 200; installation matches .env
+API /v1/agents without credentials: HTTP 401
+API /auth/confirm without token: HTTP 400
+API /readyz: HTTP 503, expected while execution is not implemented
+outbox-relay process readiness (DB + Kafka): PASS
+audit process readiness (DB + Kafka): PASS
+Docker api / kafka / outbox-relay / audit: running, healthy
+Docker migrate / kafka-init: exited successfully
+
+Configured public tunnel: FAIL (DNS does not resolve).
+Public API request not verified. Need a live tunnel to localhost:8080 and its URL.
+Dashboard URL Configuration and confirmation template: not verified/applied.
+Actual owner signup/email confirmation: NOT_RUN; no email sent.
+No synthetic business/audit records inserted into the production database.
+Actual audit event pipeline tested with real Kafka + disposable PostgreSQL in
+the prior integration suite; live workers are connected and ready for owner activity.
+
+Reproduce read-only live checks: make check-live
+DB/Auth/workers only: python3 scripts/check-live.py --private-only
+No whole MVP/run execution acceptance claimed.

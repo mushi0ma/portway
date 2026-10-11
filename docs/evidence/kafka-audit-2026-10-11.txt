@@ -1,0 +1,44 @@
+Portway Kafka audit slice verification
+Date: 2026-10-11 (Asia/Almaty)
+
+make docker-test: PASS (exit 0, final run)
+gofmt, go vet, unit race tests, OpenAPI contract, real PostgreSQL/Kafka integration,
+migration fresh/repeat/checksum/upgrade, API and events static binary builds.
+TestKafkaAuditDelivery: PASS (5.74s)
+Tests: source transaction rollback; simulated publish outage; actual Kafka ACK
+followed by source transaction rollback; relay retry; duplicate delivery with one
+inbox/projection effect; conflicting duplicate rejected; consumer restart reads
+committed offset; worker role isolation; expired backlog stops configuration but
+allows device revocation.
+
+Found during testing: Kafka Snappy JNI could not load from noexec /tmp.
+Fixed by sending small audit records without compression; noexec preserved.
+Consumer empty-poll timeout is distinct from DB/offset timeout; only empty polls
+may continue, processing failure restarts from committed offsets.
+
+make docker-smoke: PASS (exit 0)
+Production API image fc8f079a33ab, non-root/read-only, disposable PostgreSQL,
+migrations 001-004, health, auth guard, explicit readiness=503, process restart.
+Production events-runtime image build: PASS
+Image: sha256:d0fd0fca0d88d0417ee1a4731efdd9c3e34dd7a922a4f5b4155fc5a1ab6e219c
+Configured non-root user: 65532:65532
+Main Compose structure check: PASS
+Loopback host port=8000; workers receive only their DSN, installation ID and
+broker address; Kafka has no published host ports and an internal network.
+
+Main Kafka startup: PASS; topic initialization: PASS
+Single-host persistent broker, replication factor 1; not HA.
+
+Real Supabase Auth GET /settings: HTTP 200
+Publishable key accepted; external.email=true; mailer_autoconfirm=false.
+Official Supabase Root 2021 CA downloaded from the URL in Dashboard source;
+PostgreSQL TLS verification passes with sslmode=verify-full.
+Real database authentication: BLOCKED (password authentication failed).
+Real migrations, role provisioning and API/worker startup: NOT_RUN due to DB credentials.
+User supplied HTTPS tunnel saved as PORTWAY_PUBLIC_URL; PORTWAY_PORT=8000.
+Dashboard Site URL/redirect/template updates: prepared locally, not applied.
+Real signup/email/Android/execution/FCM: NOT_RUN.
+
+Additional host unit run encountered sandbox denial of loopback sockets;
+the full containerized unit/integration suite above passed.
+No complete MVP acceptance claimed.
