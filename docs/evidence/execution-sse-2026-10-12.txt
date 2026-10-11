@@ -44,7 +44,21 @@ configured private key/token/DSN/password values. .env and .idea stay ignored.
 Production image smoke: PASS (non-root/read-only, migrations, auth guard,
 expected readiness, restart). Production builds of API/events/execution: PASS.
 Final startup schema probe also checks the approval index (migration 007).
-Deployment results are recorded below after execution.
+Deployment: PASS.
+Code commit: b6076734a511009e6c17aaa8e7b8d4407f35749b.
+Supabase migrations 006 and 007 applied successfully over existing schema.
+API, execution, audit and relay rebuilt/recreated; Kafka/Funnel retained.
+All six containers running and healthy.
+make check-live: PASS (four least-privilege verified-TLS DB roles, all seven
+migration checksums, three private business schemas, Supabase email settings,
+local/public health/config/auth guards, worker DB+Kafka readiness).
+Public Funnel checked via public DNS IP and curl --resolve/--noproxy with
+certificate verification: health=200, approvals=401, run events=401,
+readyz=503 as expected. No credentials supplied to public smoke requests.
+Push to origin/main: confirmed.
+GitHub Actions started for the code commit:
+https://github.com/mushi0ma/portway/actions/runs/38186214370
+Remote CI was in progress at deployment recording time; local full checks passed.
 No production owner/signup/email, business runs, model billing or commands are
 created by these checks. Real authorized SSE through Funnel, physical Android,
 SSE p95, Runtime isolation/stop and push delivery remain unverified.

@@ -1,12 +1,12 @@
 # Portway — фактический статус реализации
 
-> **Развёртывание 11–12.10.** Control API, Kafka, relay, audit и отдельный execution service запущены с реальной Supabase. Миграции 001–005 применены, четыре service-role подключаются с `verify-full`, закрытые схемы недоступны `anon/authenticated`. `make check-live` и перезапуск execution прошли. Текущий публичный URL — `https://portway.tail1443b8.ts.net`; Funnel работает отдельным Docker-узлом с persistent volume. `origin` настроен на репозиторий владельца `mushi0ma/portway`. [Протокол переключения Funnel](evidence/docker-funnel-2026-10-12.txt). [Протокол среза](evidence/execution-foundation-2026-10-12.txt).
+> **Развёртывание 11–12.10.** Control API, Kafka, relay, audit и отдельный execution service запущены с реальной Supabase. Миграции 001–007 применены, четыре service-role подключаются с `verify-full`, закрытые схемы недоступны `anon/authenticated`. `make check-live` и перезапуск execution прошли. Текущий публичный URL — `https://portway.tail1443b8.ts.net`; Funnel работает отдельным Docker-узлом с persistent volume. `origin` настроен на репозиторий владельца `mushi0ma/portway`. [Протокол переключения Funnel](evidence/docker-funnel-2026-10-12.txt). [Протокол среза](evidence/execution-foundation-2026-10-12.txt).
 
 **11.10.2026, Asia/Almaty. Первый срез: Go foundation / identity / agent configuration.** Нормативная база остаётся в ТЗ/SRS/MoSCoW; этот файл фиксирует код и доступные свидетельства. Реализация первого среза не означает приёмку полного MVP.
 
 > Бизнес-срез 12.10: [согласование действий](25-approval-workflow.md): чтение pending, неизменяемые параметры, approve/reject с CAS, TTL и stop/restart invalidation. Approved не означает executed; Runtime grants и FCM ещё не подключены.
 
-> Срез 12.10: [SSE и retention execution](24-execution-sse-retention.md). Проверки и развёртывание фиксируются в отдельном протоколе; допуск model/tool исполнения остаётся закрытым.
+> Срез 12.10: [SSE и retention execution](24-execution-sse-retention.md). Docker/race/integration/smoke и live Supabase/Funnel проверки прошли; [протокол](evidence/execution-sse-2026-10-12.txt); допуск model/tool исполнения остаётся закрытым.
 
 > Предыдущий срез: [execution foundation](23-execution-foundation.md) и [отдельный Docker Funnel](../deploy/tailscale/README.md). Код, Docker integration/smoke и живой запуск проверены; подробности в протоколе нового среза. Production run admission остаётся закрытым.
 
@@ -15,7 +15,7 @@
 | Область | Код / проверка | Связь с проектом и остаток |
 |---|---|---|
 | Go и Docker | `cmd/portway`, Dockerfile, основной и тестовый Compose, Makefile, GitHub Actions | BL-001/002/006, DOC-020/052. Backend Docker/CI проверен локально и в GitHub Actions; APK ещё не реализован |
-| БД | `internal/storage`, миграции 001–007 в коде; закрытые схемы, отдельная app role, checksum, транзакционный migration lock | BL-004, DOC-029. Fresh/repeat/checksum/upgrade проверяются на disposable PostgreSQL; миграции применены в рабочей Supabase; роль API и TLS проверены |
+| БД | `internal/storage`, миграции 001–007; закрытые схемы, отдельная app role, checksum, транзакционный migration lock | BL-004, DOC-029. Fresh/repeat/checksum/upgrade проверяются на disposable PostgreSQL; миграции применены в рабочей Supabase; роль API и TLS проверены |
 | Identity | `internal/identity`, Supabase HTTP adapter, JWKS/legacy verification, setup/confirmation, owner/device guard, login/refresh/logout/revoke | BL-100/121/123/124, FR-001–004/081/084/085 частично. Auth settings endpoint проверен; реальный signup/email, Android и push unlink ещё не проверены/не реализованы; SSE проверяет JWT/device при каждой порции |
 | Агенты и роли | `internal/agents`, HTTP API, 5+3 presets, строгая config/policy валидация, immutable versions, ETag | BL-010/011/012/014. Проверены сохранение, чтение, идемпотентность и гонки; pinning в run и runtime policy ещё впереди |
 | Providers/secrets | Allowlisted configuration, capabilities initially unknown, AES-256-GCM с AAD/nonce, metadata-only reads | BL-020/025 частично, DOC-040. Реального LLM/probe нет; rotation/restore ещё не реализованы |
