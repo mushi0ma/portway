@@ -1,18 +1,21 @@
 # Portway
 
+**Agent Bridge v2 (14.10.2026):** телефон отправляет задачи **Codex CLI или Claude Code** на ноутбуке, выбирает модель и уровень рассуждений, видит лимиты аккаунта (5 часов / неделя) с явным состоянием «лимит исчерпан» и подключает/переключает аккаунты ChatGPT и Claude через OAuth самих сервисов (официальные CLI на ноутбуке, код устройства или вставка кода). Маршруты `/v1/codex/*`, OpenAPI 0.8.0, миграция 010; развёрнуто на рабочем стеке, `check-live` PASS. [Контракт](docs/36-api-events-and-messages.md#agent-bridge-v2), [запуск моста](docs/52-build-deploy-and-operations.md#codex-demo-operations), [протокол](docs/evidence/agent-bridge-2026-10-13.txt). Клиент 0.2.0 с редизайном — [ниже](#android-клиент).
+
+
 Go-бэкенд мобильного пульта для агентов разработки. Целевая архитектура с 11.10 — **микросервисы и Kafka**, по [решению владельца D-22](docs/21-microservices-kafka-amendment.md); текущая реализация включает control API, отдельные outbox relay и audit consumer; добавлен отдельный execution service для состояния и бюджетов, production run admission пока закрыт. Реализован первый срез **foundation + identity + agent configuration** по проектным документам в [docs](docs/README.md). Это начало приложения, а не готовый MVP. [Execution foundation](docs/23-execution-foundation.md), [Funnel в Docker](deploy/tailscale/README.md). [Первый срез Kafka и его ограничения](docs/22-kafka-first-slice.md).
 
 ## Что работает
 
 - Первый Go-сервис (`control-api`, разделение ещё впереди): конфигурация, JSON HTTP API, корректное завершение процесса, безопасные структурные логи.
-- PostgreSQL: пять транзакционных миграций с checksum и advisory lock; отдельные права API, мигратора и workers; закрытые схемы `portway`, `portway_audit` и `portway_execution`.
+- PostgreSQL: восемь транзакционных миграций (008 пока локально) с checksum и advisory lock; отдельные права API, мигратора и workers; закрытые схемы `portway`, `portway_audit` и `portway_execution`.
 - Supabase Auth adapter: регистрация единственного владельца с setup proof, email callback, login/refresh/logout; JWT RS256/ES256 через JWKS, legacy HS256 через Auth API; привязка subject + auth session + device proof, серверный отзыв устройств.
 - Каталог 5 основных ролей и 3 субагентских пресетов, создание агента, неизменяемые версии, проверка `If-Match`, ограничения прав и численные defaults SRS.
-- Конфигурация allowlisted провайдеров, write-only секреты AES-256-GCM, транзакционные idempotency keys и аудит; чтение статуса по операциям.
+- Конфигурация allowlisted провайдеров, write-only секреты AES-256-GCM, транзакционные idempotency keys и аудит; чтение статуса по операциям. Добавлен защищённый capability-check: bounded protocol probe, отчёт с config binding/TTL и invalidation, replay без повторной генерации. [Контракт](docs/27-model-gateway.md#capability-check).
 - Отдельный execution service: run/chain snapshots, reservations/settlement, stop epochs, startup reconciliation, собственные history/outbox и Kafka topic; HTTP admission остаётся закрытым до Runtime/LLM.
 - OpenAPI 3.1 в [api/openapi.json](api/openapi.json), тесты с race detector, изолированный PostgreSQL в Docker и GitHub Actions workflow.
 
-**Пока не реализованы:** Runtime Manager и контейнеры выполнения агентов, LLM Harness/capability probes, реальный dispatch run/chain, SSE, approvals, links/hooks и события исполнения, MCP, FCM, пакеты и Android. Создание конфигурации не запускает модель. `unresolved` явно показывает недостающие привязки. Новые S/C-расширения из backlog не добавлялись.
+**Пока не реализованы:** Runtime Manager и контейнеры выполнения агентов, production dispatch LLM Gateway и verified tokenizer, реальный dispatch run/chain, links/hooks, MCP, FCM, пакеты и Android. SSE, approvals и внутренний Harness с durable results уже добавлены; Harness пока работает только с trusted адаптерами в тестах. Создание конфигурации не запускает модель. `unresolved` явно показывает недостающие привязки. Подмножество BL-022 проверяет подключение в составе обязательного capability lifecycle; каталог моделей остаётся в S-остатке.
 
 ## Проверить без Supabase и платных сервисов
 
@@ -146,3 +149,17 @@ compose.test.yaml       disposable PostgreSQL + контейнер тестов
 ```
 
 [Статус реализации и следующие срезы](docs/implementation-status.md) отдельно от проектной приёмки. Workflow подготовлен; удалённый GitHub CI не считается выполненным до публикации репозитория и реального прогона.
+
+### Harness и результат запуска
+
+Внутренний цикл и защищённый `GET /v1/runs/{id}/result` описаны в [срезе Harness](docs/26-harness-turns-and-results.md). Reservation предшествует модельному вызову, tool outcome сохраняется до следующего шага, final answer и completion event атомарны. Production admission остаётся закрытым до реальных Gateway/Runtime и dispatch fencing.
+
+Рабочая очередь и критерии завершения — [implementation plan](docs/implementation-plan.md). IP-01: [потоковый Chat Completions adapter](docs/27-model-gateway.md) проверен на HTTP fixtures; IP-02a: capability-check/report lifecycle проверен локально; IP-02b: [free-only OpenRouter/private Gateway](docs/28-free-model-connections.md) добавлен и проверен локально (Docker/race/PG/Kafka/smoke). Следующие пункты — verified token counting и Runtime/worker. Реальный free-model roundtrip пока не принят.
+
+## Бесплатные модели
+
+`OPENROUTER_API_KEY` в `.env` передаётся только control API. `PORTWAY_MODEL_POLICY=free_only`; платные модели/fallback/plugins запрещены. После сборки `portway models` читает текущий zero-price каталог без генерации, `portway model-probe MODEL_ID:free` запускает ограниченную диагностику. [Подключение/API/private Gateway и текущие ограничения](docs/28-free-model-connections.md). Создание реальных agent runs ещё закрыто до verified tokenizer и Runtime; fixture counter не включается в production.
+
+## Android-клиент
+
+Flutter-клиент 0.2.0 в [apps/portway](apps/portway/README.md): Splash, подключение установки, регистрация/вход с проверкой полей, главная с лимитами ИИ, чат-композер задач (Codex / Claude Code, модель, effort), ответ в Markdown, история с поиском и фильтрами, аккаунты ИИ, профиль и выход; Dark/Light по переработанной системе Figma ([DESIGN.md](DESIGN.md)). APK: `output/android/portway-demo-0.2.0-3.apk`; показ — `python3 scripts/demo-android.py`. [Протокол проверки](docs/evidence/flutter-redesign-2026-10-13.md): analyze/test PASS, эмулятор; физический телефон и TalkBack — NOT_RUN.

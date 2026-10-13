@@ -1,0 +1,3 @@
+interface:
+  display_name: "Portway: документация"
+  short_description: "Синхронизация docs, статусов BL/TC и evidence"

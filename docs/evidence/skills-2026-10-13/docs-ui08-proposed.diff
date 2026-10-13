@@ -1,0 +1,101 @@
+--- a/docs/61-android-screens-flows-and-api.md
++++ b/docs/61-android-screens-flows-and-api.md
+@@ -5,8 +5,8 @@
+ | Поле | Значение |
+ |---|---|
+ | Артефакт | [DOC-061][id-doc-061] |
+-| Версия и дата | v0.1 · 10.10.2026 |
+-| Статус | Проектный UX/interaction baseline; [APK][g-apk] и визуальная проверка NOT_RUN |
++| Версия и дата | v0.2 · 13.10.2026 |
++| Статус | Проектный UX/interaction baseline; UI-08 уточнён по capability-check API; Flutter-клиент, [APK][g-apk] и визуальная проверка NOT_RUN |
+ | Основания | [Vision](06-product-vision.md), [SRS](03-software-requirements-specification.md), [20 UC](12-use-case-diagrams-and-specifications.md), [AC](14-demo-acceptance-criteria.md) |
+ | Контракты | [API](36-api-events-and-messages.md), [данные/состояния](29-data-and-state-model.md), [пакет](38-agent-package-format.md), [Flutter-архитектура](20-architecture-and-decisions.md#flutter-architecture), [проверки](57-verification-and-traceability.md) |
+ 
+@@ -61,7 +61,7 @@
+ | UI-05 Главная | Активные [задачи][g-task], pending [approvals][g-approval], доступность сервера; «Новая [задача][g-task]» | GET [runs][g-run]/[approvals][g-approval]/status; [FR-083][id-fr-083] |
+ | UI-06 [Агенты][g-agent] | Basic list, создание; отдельные main/subagent presets | GET [agents][g-agent]/[roles][g-role]; [FR-005][id-fr-005]–009/087 |
+ | UI-07 Конфигурация версии | Инструкции/[skills][g-skill]/[tools][g-tool]/[MCP][g-mcp], [роль][g-role]/[provider][g-provider], права; «Сохранить новую версию» | POST [agents][g-agent]/versions, GET version; [FR-005][id-fr-005]–009 |
+-| UI-08 Подключения | [Provider][g-provider] endpoint/[model][g-model], secret ref write-only, capability report | providers/capability-check/secret-refs; [FR-011][id-fr-011]–016 |
++| UI-08 Подключения | [Provider][g-provider] endpoint/[model][g-model], secret ref write-only; явная проверка протокола, актуальность отчёта и причины ограничения запуска | GET/POST providers, PUT providers/{id}, POST providers/{id}/capability-check, secret-refs; [FR-011][id-fr-011]–016; диагностика — часть [FR-017 S](03-software-requirements-specification.md#fr-017) |
+ | UI-09 Новая [задача][g-task] | Task, [AgentVersion][g-agent-version], [provider][g-provider], registered repo/ref+revision, лимиты | POST [runs][g-run]+key; [FR-018][id-fr-018]/066 |
+ | UI-10 [Задача][g-task] | [State][g-uml]/reason, feed, partial output, budget/source, [run][g-run]/[chain][g-chain] [stop][g-cancelled], связанные [run][g-run] | GET [run][g-run]/[chain][g-chain], [SSE][g-sse], POST [stop][g-cancelled]; [FR-021][id-fr-021]–027/051–055/067 |
+ | UI-11 [Апрувы][g-approval] | Pending list; [инструмент][g-tool], существенные args, срок и контекст | GET [approvals][g-approval]/detail; [FR-068][id-fr-068] |
+@@ -74,6 +74,30 @@
+ | UI-18 Состояние и диагностика | DB/[Runtime][g-runtime]/[model][g-model]/[push][g-push] с checked_at/причиной; audit/logs по контексту | status/audit/logs; [FR-004][id-fr-004]/089 |
+ 
+ UI-ID — локальный индекс раздела, не новые независимые артефакты. Фильтры/архив истории, редактор [ролей][g-role], [GitHub][g-github] PR, [Runner][g-runner] и расписания не получают пустых основных кнопок. Уже доступный M-результат показывается независимо от PR. В формах нет ввода master key, DB string или [FCM][g-push] server credential.
++
++<a id="provider-ui"></a>
++### UI-08. Проверка подключения и актуальность отчёта
++
++Сохранение [provider][g-provider] настраивает endpoint, model ID и secret ref, но не вызывает [модель][g-model] и не подтверждает её возможности. Значение [секрета][g-secret] вводится write-only; при повторном открытии показываются только ref/alias/state. Проверка запускается отдельным действием «Проверить протокол». До действия показать: «Проверка выполнит до двух запросов к выбранной модели, до 128 выходных токенов каждый; возможен расход по тарифу подключения». Это предел запрошенного output, а не доказанный денежный бюджет или input bound.
++
++Клиент отправляет `POST /v1/providers/{id}/capability-check` с действующими owner/device, текущим `If-Match`, новым `Idempotency-Key` для новой пробы и строгим телом `{"profile":"chat-completions-v1"}`. Во время отправки повторный tap заблокирован. Ответ **202** — подтверждение сохранения операции, не успех проверки; сохранить `check_id` и читать текущий отчёт через `GET /v1/providers` (`status_url` из ACK). Первый POST выполняет пробу синхронно в пределах deadline; параллельный replay может вернуть ACK ещё при `checking`. Восстановление после потерянного ответа использует исходный key и не инициирует новую генерацию. GET публикует только текущий report: другой `check_id` не выдаётся за результат старого ACK.
++
++| Наблюдаемое состояние | Текст и действие UI-08 |
++|---|---|
++| Пустой `capabilities` | «Протокол ещё не проверен»; доступна явная проверка |
++| `state=checking`, deadline ещё не истёк | «Проверяем протокол»; перечитать текущий report; второй tap не начинает новую пробу |
++| `state=completed`, `protocol_valid=true` | «Протокол проверен для этой конфигурации»; показать model ID, config version, профиль, `checked_at`/`expires_at` и отдельные streaming/tool_calling/tool_result/reported_usage |
++| `state=completed`, безопасный `protocol.error_code` | «Проверка не подтверждена» + понятная причина по безопасному коду; не показывать upstream body/credential |
++| Report истёк или его binding больше не актуален | «Требуется новая проверка»; старый успех не подтверждает текущую конфигурацию |
++| `checking` остался после deadline | «Итог проверки не получен»; GET актуального report; новая проба возможна только отдельным явным действием с новым key |
++| `VERSION_CONFLICT` / `CAPABILITY_CHECK_IN_PROGRESS` | Перечитать provider/report; объяснить изменение конфигурации либо уже начатую проверку, без автоматической новой генерации |
++| Потеря сети/сессии | Показать последнее обновление; cached report не подтверждает актуальность; восстановить доступ и GET, при необходимости replay исходного запроса |
++
++Wire-состояния report — только `checking`/`completed`; «истёк», «ошибка» и «нет итога» выше — представления клиента, не новые значения API. `protocol_valid` вычисляет сервер по текущим provider/endpoint/model/config/profile, allowlist и времени БД. Успешный report имеет TTL 30 минут; клиент не продлевает его и не выставляет true самостоятельно. Изменение provider очищает report/`checked_at`; поздний ответ старой проверки не восстанавливает успех. Возврат на экран и истечение срока требуют перечитать серверное состояние; автоматическую платную пробу не запускать.
++
++Даже при `protocol_valid=true` показать «Запуск агента пока недоступен»: `capabilities.runnable=false`, публичный admission остаётся закрыт. Успех пробы подтверждает ограниченный wire-профиль выбранного binding; он не подтверждает tokenizer, Runtime, полную совместимость или выполнение команды. Probe использует synthetic tool result; предлагаемая команда не исполняется. Дополнительный каталог/подключение OpenRouter в актуальном [OpenAPI](../api/openapi.json) — отдельные операции, metadata GET не является capability-пробой и не доказывает пригодность модели к запуску.
++
++Основание lifecycle — [Gateway IP-02a](27-model-gateway.md#capability-check), [OpenAPI](../api/openapi.json) и [локальный протокол 13.10](evidence/provider-capabilities-2026-10-13.txt). Этот протокол подтверждает HTTP fixtures/PostgreSQL/Kafka и API image smoke для capability-среза; реальные M1/M2 и Flutter UI не проверены. Не распространять его PASS на последующие API-изменения. Связь проверки: FR-011–016 → UI-08 / BL-020/021/023/025 → [TC-005](57-verification-and-traceability.md#tc-005); S-диагностика FR-017 / BL-022 остаётся частичной. Уточнение UX не переводит BL/TC в новый статус.
+ 
+ <a id="approval-layout"></a>
+ ## 4. Ключевой экран [апрува][g-approval]
+@@ -148,6 +172,7 @@
+ | Версия | Дата | Изменение |
+ |---|---|---|
+ | v0.1 | 10.10.2026 | Созданы экранный состав, flows, контракты, тексты состояний, [approval][g-approval] [wireframe][g-ui] и [accessibility][g-accessibility] baseline |
++| v0.2 | 13.10.2026 | Уточнён UI-08: явная bounded capability-проба, 202 ACK/replay, report binding/TTL, безопасные состояния и отдельное ограничение runnable; реализации/приёмки клиента не заявлено |
+ 
+ [g-accessibility]: 07-glossary.md#term-accessibility
+ 
+--- a/docs/01-product-backlog.md
++++ b/docs/01-product-backlog.md
+@@ -6,7 +6,7 @@
+ | Поле | Значение |
+ |---|---|
+ | Артефакт | № 1 дорожной карты |
+-| Версия и дата | v0.16 · 13.10.2026 |
++| Версия и дата | v0.17 · 13.10.2026 |
+ | Роль документа | Рабочий документ; обновлять при изменении своей области; актуальный состав — [навигатор](README.md#existing) |
+ | Статус | Реализация backend и локальные проверки выполнены частично; реальные обязательные сценарии MVP ещё не приняты. См. [статус](implementation-status.md) и [план](implementation-plan.md) |
+ | [Владелец][g-owner] | [Владелец][g-owner] проекта; обычные технические решения/подготовка — [ИИ-агент][g-development-agent] |
+@@ -338,7 +338,7 @@
+ | <a id="doc-058"></a>[DOC-058][id-doc-058] / 58 | Тест-план | S / BE | В составе целевого документа; собственной даты/очереди нет | 5, 57 | Раздел сводного документа [DOC-057](57-verification-and-traceability.md); отдельный файл не создавать |
+ | <a id="doc-059"></a>[DOC-059][id-doc-059] / 59 | Таблица [тест-кейсов][g-acceptance] | M / BE | В составе целевого документа; собственной даты/очереди нет | 12, 14, 58 | Раздел сводного документа [DOC-057](57-verification-and-traceability.md); отдельный файл не создавать |
+ | <a id="doc-060"></a>[DOC-060][id-doc-060] / 60 | Тестовые [дублёры][g-fixture] и [фикстуры][g-fixture] | M / BE | В составе целевого документа; собственной даты/очереди нет | 43, 57 | Раздел сводного документа [DOC-057](57-verification-and-traceability.md); отдельный файл не создавать |
+-| <a id="doc-061"></a>[DOC-061][id-doc-061] / 61 | [Android][g-flutter]: экраны, переходы и [API][g-api] | S / Общ. | Подготовлен 10.10.2026; уточнять вместе с кодом | 18, 36 | Подготовлен v0.1; рабочий контракт; реализация/испытания NOT_RUN |
++| <a id="doc-061"></a>[DOC-061][id-doc-061] / 61 | [Android][g-flutter]: экраны, переходы и [API][g-api] | S / Общ. | Подготовлен 10.10.2026; UI-08 уточнён 13.10.2026 | 18, 36 | Подготовлен v0.2; рабочий контракт; Flutter-клиент/испытания NOT_RUN |
+ | <a id="doc-062"></a>[DOC-062][id-doc-062] / 62 | [Wireframes][g-ui] ключевых экранов | C / [FE][g-ui] | В составе целевого документа; собственной даты/очереди нет | 18, 61 | Раздел сводного документа [DOC-061](61-android-screens-flows-and-api.md); отдельный файл не создавать |
+ | <a id="doc-063"></a>[DOC-063][id-doc-063] / 63 | Заметка по архитектуре [Flutter][g-flutter] | C / [FE][g-ui] | В составе целевого документа; собственной даты/очереди нет | 61 | Раздел сводного документа [DOC-061](61-android-screens-flows-and-api.md); отдельный файл не создавать |
+ | <a id="doc-064"></a>[DOC-064][id-doc-064] / 64 | [Roadmap][g-planning] и вехи (backend-first) | M / BE | В составе целевого документа; собственной даты/очереди нет | 5, 21 | Обновление существующего документа [DOC-001](#doc-001); отдельный файл не создавать |
+@@ -396,6 +396,8 @@
+ | v0.13 | 10.10.2026 | По запросу [владельца][g-owner] очередь сокращена с 57 позиций до 8 сводных документов; определена роль существующего материала, ссылки на старые DOC-ID сохранены как сопоставление. Требования и приоритеты [BL][g-work-ids]/[CW][g-work-ids] не изменены |
+ | v0.14 | 10.10.2026 | Подготовлены все восемь сводных контрактов; обновлены навигация/статусы/ссылки и связь с [RTM][g-traceability]/[TC][g-acceptance]; требования, приоритеты и NOT_RUN сохранены |
+ | v0.15 | 12.10.2026 | Сверены фактические backend-срезы, D-22/Funnel и статусы; добавлен [план IP-01–08](implementation-plan.md). Обязательные требования/приоритеты сохранены; полная приёмка ещё не пройдена |
++
++| v0.17 | 13.10.2026 | Синхронизирован текущий реестр DOC-061 v0.2 после уточнения UI-08 по capability-check; статусы и приоритеты BL/TC не изменены |
+ 
+ <!-- glossary-and-id-links: определения ссылок для текста выше -->
+ [g-acceptance]: 07-glossary.md#term-acceptance
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -43,7 +43,7 @@
+ | [DOC-036 API, события и сообщения](36-api-events-and-messages.md) | HTTP DTO/ошибки, [auth][g-auth]/device, [SSE][g-sse], envelope и routing; проектный baseline | Связанные контракты и [DOC-057][id-doc-057] |
+ | [DOC-040 Исполнение агентов и безопасность](40-agent-execution-and-security.md) | [Harness][g-harness], [policy][g-policy]/[approval][g-approval]/budget, [Runtime][g-runtime], угрозы и [recovery][g-recovery]; проектный baseline | Связанные контракты и [DOC-057][id-doc-057] |
+ | [DOC-038 Формат переносимого пакета](38-agent-package-format.md) | [ZIP][g-package]/manifest/[MCP][g-mcp], [staging][g-staging]/[mapping][g-staging]/[activation][g-staging], перенос; проектный baseline | Связанные контракты и [DOC-057][id-doc-057] |
+-| [DOC-061 Android: экраны, переходы и API](61-android-screens-flows-and-api.md) | 18 экранов, user flows, состояния, [push][g-push]/[ZIP][g-package], доступность; проектный baseline | Связанные контракты и [DOC-057][id-doc-057] |
++| [DOC-061 Android: экраны, переходы и API](61-android-screens-flows-and-api.md) | 18 экранов, user flows, состояния, [push][g-push]/[ZIP][g-package], доступность; UI-08 уточнён в v0.2 по capability-check, клиент NOT_RUN | Связанные контракты и [DOC-057][id-doc-057] |
+ | [DOC-057 Проверки и трассировка](57-verification-and-traceability.md) | 32 [TC][g-acceptance], 114 [FR][g-requirement-ids]/[NFR][g-requirement-ids] [RTM][g-traceability], 70 обязательных [BL][g-work-ids]/[CW][g-work-ids] связей, [ПМИ][g-traceability]/протокол; проектный baseline | Связанные контракты и [DOC-057][id-doc-057] |
+ | [DOC-052 Сборка, развёртывание и эксплуатация](52-build-deploy-and-operations.md) | Config/[CI][g-ci-cd]/сборка, [deployment][g-ci-cd], инструкции, [runbook][g-runbook], сохранность; проектный baseline | Связанные контракты и [DOC-057][id-doc-057] |
+ 

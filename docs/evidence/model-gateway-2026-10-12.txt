@@ -1,0 +1,45 @@
+Portway IP-01 / streaming model gateway
+Date: 2026-10-12 (Asia/Almaty)
+Scope: local code, local HTTP fixtures, disposable Docker PostgreSQL and Kafka.
+Production deployment and real-model compatibility are not claimed.
+
+make docker-test: PASS, exit 0 (recorded after process completion)
+- format, go vet, unit tests with -race: PASS, including internal/modelgateway.
+- OpenAPI route/schema references: PASS.
+- PostgreSQL/Kafka integration with -race: PASS, 39.582s.
+- TestHarnessTransactions/http-model-adapter: PASS.
+  Counted request equals transmitted request. Streamed shell proposal pauses run;
+  owner approve + trusted fixture tool outcome precede next HTTP model request;
+  tool observation is carried in an assistant/tool pair. Two HTTP calls, 140
+  reported tokens, one durable final answer, no real shell commands.
+- Existing identity/approval/SSE, budget/stop/replay/rollback, migration/upgrade,
+  Kafka delivery and retention scenarios: PASS.
+- static builds of portway/events/execution: PASS.
+
+Unit HTTP/protocol cases:
+- exact provider binding and endpoint allowlist; key only in Authorization header.
+- no generation while counting; no heuristic when TokenCounter is absent.
+- text and fragmented tool SSE; deterministic tool/result pair in next prompt.
+- malformed/truncated stream, missing finish/DONE, changing response ID, multiple
+  choices/tool indexes, late content, duplicate/malformed usage: rejected.
+- missing/over-bound usage stays unknown; length finish is error, not success.
+- unknown/duplicate tool arguments rejected; response/frame/text limits bounded.
+- redirects not followed; 401/403/429/500 are safe errors and not retried.
+- cancellation closes upstream request; no provider-body/key markers in errors.
+
+No third-party dependency added. No migration/public model/probe endpoint added.
+Production model admission remains closed. IP-02 must establish actual model IDs,
+capability reports/version binding and verified tokenizer/conservative bounds.
+No real LLM invocation, paid request, Runtime isolation or physical stop SLA tested.
+
+Documentation synchronization:
+- TЗ/SRS/Backlog/MoSCoW dates and current status updated, historical 10.10 retained.
+- BL/FR/NFR/SYS/QLT/CW/D identifiers and BL priorities preserved.
+- Current D-22 process/DB ownership and Docker Funnel replace stale current claims.
+- Backend evidence added to RTM as PARTIAL; no full TC/AC promoted to PASS.
+- implementation-plan.md records IP-01 LOCAL_TESTED, IP-02 NEXT and IP-03–08 TODO.
+
+Documentation checks: PASS — canonical ID registries unchanged; all 79 BL
+priorities preserved (66 M / 8 S / 4 C / 1 W); local linked paths and selected
+new/explicit anchors valid; git diff --check clean. BL implementation status:
+5 LOCAL_TESTED, 30 PARTIAL, 32 TODO, 12 DEFERRED. These are not MVP percentages.

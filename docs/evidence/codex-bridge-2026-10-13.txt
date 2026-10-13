@@ -1,0 +1,84 @@
+Portway native Codex demo — engineering evidence
+Date: 2026-10-13, Asia/Almaty
+Workspace: /home/mushi/Workspace/Portway
+HEAD: 482ed7216b07e901e06034def45af724d03009b2 plus uncommitted changes.
+Backend source identifier: codex-bridge-source-2026-10-13.json (safe SHA-256 manifest; no secrets).
+
+Scope: opt-in /v1/codex/* prompt/status/history/detail/events/stop and outbound
+native portway codex-bridge worker. Independent ephemeral read-only CLI tasks;
+no Desktop chat attach/resume or file editing. User requested actual laptop Codex
+integration while Flutter is developed in another chat. No new model API keys or
+paid API generation used; existing ChatGPT CLI login and its quota are used.
+
+Observed installed CLI: codex-cli 0.159.3, Linux x86_64.
+Observed login status: Logged in using ChatGPT (credential values not inspected).
+Direct one-request CLI JSONL probe: PORTWAY_NATIVE_CODEX_OK, turn.completed.
+No tool/file access requested in real probes.
+
+Native end-to-end command (disposable database, fake Supabase auth):
+  sh /tmp/portway-codex-native-test.sh
+Artifact: bin/portway-integration.test
+SHA-256: 7d5507705bba2f0fdb69a953df46773b6e45ffdf25d08fed6d3588d05a2cc2a2
+Detailed safe log: /tmp/portway-codex-native.log
+Observed: TestBackend PASS (41.61 seconds), real_native=true.
+Protected API -> encrypted PostgreSQL queue -> native Codex process using current
+ChatGPT login -> encrypted durable answer -> authenticated GET snapshot PASS.
+Result text matched PORTWAY_NATIVE_CODEX_OK. Prompt/result and report tokens were
+not logged. Local HTTP test server and real native model are distinguished from
+production auth, external HTTPS and a physical Android client.
+This native roundtrip preceded the final encoded-event size guard; the unchanged
+normal path and added boundary guard are covered by subsequent current-code tests.
+
+Negative/fixture checks:
+- unauthorized bridge, unknown workspace, offline/busy bridge, duplicate bridge;
+- durable create idempotency, one-time job issuance (no repeated dispatch);
+- encrypted prompt/result/events; foreign execution/relay/audit SQL access denied;
+- sequence/hash event replay, conflicting duplicate/gap and late terminal output;
+- stop, originating device revoke, lease expiry without requeue;
+- fake native process Worker -> API -> persisted result;
+- no API/database/bridge keys inherited by native process;
+- stdin prompt is not evaluated by shell;
+- JSONL bounds, missing/invalid completion, escaped oversized answer;
+- process group cancellation and worker cancellation on lost lease authority;
+- codex.queued/stopped/completed/failed use safe metadata-only Kafka audit actions.
+
+Verification:
+make docker-test — PASS on final code, integration 42.519 seconds.
+  Safe log: /tmp/portway-codex-release-verified.log; all Go builds completed.
+  Includes real Kafka projection of four Codex audit actions and foreign SQL denial.
+make docker-smoke — PASS on final code.
+  Safe log: /tmp/portway-codex-release-smoke.log; migration 009 and restart verified.
+Earlier full verification PASS, integration 42.567 seconds, before encoded guard.
+Earlier production-image smoke PASS: non-root/read-only/migrate/health/auth/restart.
+Native launch preparation:
+python3 scripts/configure-codex-bridge.py — PASS, ignored .env mode 0600,
+  generated separate bridge key; no existing secrets overwritten or printed.
+python3 scripts/start-codex-bridge.py --check — PASS, ChatGPT CLI login and native
+  configuration valid; no daemon or production bridge started.
+
+Live deployment, 2026-10-13:
+- Local API/events/execution images prepared from tested source: PASS.
+- docker compose run --rm --no-deps migrate: PASS, 008/009 applied to Supabase.
+- docker compose --profile execution up -d --no-deps api outbox-relay audit execution:
+  PASS. Existing Kafka, Funnel and other projects kept running.
+- python3 scripts/check-live.py: PASS. Safe log /tmp/portway-codex-live-check.log.
+  Nine remote migration checksums match; verified TLS and restricted DB roles;
+  Supabase Auth settings and local/public guards; relay/audit/execution ready.
+- Native bridge started as owner user in background using scripts/start-codex-bridge.py;
+  PID/log recorded in ignored .tmp/codex-bridge.pid and .tmp/codex-bridge.log.
+  Not registered for automatic launch after laptop reboot.
+- Read-only SQL live check: bridge heartbeat <15 seconds, workspace=portway: PASS.
+- Production Codex runs count = 0; no synthetic owner/task records inserted.
+- Local/public /v1/codex/status and /runs without user credentials: HTTP 401 PASS.
+- Local/public /internal/v1/codex/poll without bridge key: HTTP 403 PASS.
+- Public URL: https://portway.tail1443b8.ts.net
+
+Remaining / NOT_RUN:
+- Real owner signup/email verification and Android login/prompt/result/stop.
+- Full Runtime, per-tool approvals, token-budget Harness, reviewer, FCM, portable
+  models and target TC/AC acceptance. Existing normative obligations are preserved.
+Read-only native CLI is not an attestation of rootless container isolation or of
+read isolation of every sensitive path on the laptop. See DOC-040 native profile.
+Local tests did not send model auth or synthetic business records to production.
+After successful tests, additive 008/009 migrations and bridge heartbeat metadata
+were applied to the existing installation for the user-requested phone scenario.

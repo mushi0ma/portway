@@ -3,17 +3,31 @@
 > **Изменение 11.10.2026 (D-22):** по решению владельца целевая архитектура — Go-микросервисы и Kafka. [Принятое изменение архитектуры](21-microservices-kafka-amendment.md) заменяет прежний монолит/DB-only шину; PostgreSQL outbox сохраняется для надёжной публикации. Старые схемы одного процесса ниже — baseline до изменения, не текущая целевая топология. Первый реализованный срез Kafka описан в [DOC-022](22-kafka-first-slice.md); полный переход ещё не завершён.
 
 
+> **Фактический срез 12.10:** [статус](implementation-status.md), [план](implementation-plan.md), [Harness/Result](26-harness-turns-and-results.md). Проектные структуры далее задают целевой контракт; реализованное подмножество описано в коде/миграциях и [OpenAPI JSON](../api/openapi.json). NOT_RUN baseline не отрицает выполненные инженерные проверки.
+
 <a id="doc-040"></a>
 
 | Поле | Значение |
 |---|---|
 | Артефакт | [DOC-040][id-doc-040] |
-| Версия и дата | v0.1 · 10.10.2026 |
-| Статус | Проектный baseline; реализация защит и испытания NOT_RUN |
+| Версия и дата | v0.2 · 13.10.2026 |
+| Статус | Целевые защиты полного MVP; реализованные инженерные проверки/native demo — evidence, полная приёмка NOT_RUN |
 | Основания | [ТЗ](02-technical-specification.md), [SRS defaults](03-software-requirements-specification.md#defaults), [QS](13-quality-attribute-scenarios-and-utility-tree.md) |
 | Контракты | [Архитектура](20-architecture-and-decisions.md), [транзакции/состояния](29-data-and-state-model.md), [API/envelope](36-api-events-and-messages.md), [пакет](38-agent-package-format.md), [тесты](57-verification-and-traceability.md), [runbook](52-build-deploy-and-operations.md) |
 
 <a id="trust"></a>
+<a id="codex-demo-security"></a>
+## Native Codex: границы первого профиля
+
+Профиль добровольно включается отдельным `PORTWAY_CODEX_BRIDGE_KEY`. API хранит задания и события в control schema; native bridge не получает SQL/master/provider credentials. Prompt, events и ответ шифруются AES-256-GCM с installation/run/field AAD; в Kafka/audit отправляются только `codex.queued|stopped|completed|failed`, object ID и actor ID. CLI auth остаётся в пользовательском CODEX_HOME на ноутбуке, не монтируется в контейнеры и не передаётся Android.
+
+Процесс запускается через `exec.Command` без shell, prompt идёт stdin. Только выбранный оператором абсолютный workspace, sandbox `read-only`, approval `never`, без user config/rules, daemon и web search; stdin API не задаёт binary/path/model/flags. Окружение сохраняет только HOME/PATH/CODEX_HOME/CA/LANG, model/API/database/bridge env keys не наследуются. Перед стартом моста и каждой задачей требуется `codex login status = Logged in using ChatGPT`. Raw stderr, reasoning, command line/output, auth и thread ID не публикуются; final text и agent messages доступны только владельцу.
+
+Read-only Codex sandbox запрещает запись команд, но **не является контейнерной изоляцией чтения всего ноутбука**. Оператор выбирает workspace без чувствительных исходных данных; исходный код/запрос/прочитанные CLI данные могут обрабатываться сервисом Codex. Этот owner-only профиль нельзя считать реализацией rootless Runtime и per-tool approvals DOC-040. Предоставление записи и подключение MCP требуют следующего отдельного среза. Защиты shell sandbox зависят от ОС и установленного Codex; ошибки не обходятся опасными флагами.
+
+Мост выполняет один процесс, ограничивает время/размер JSONL и отменяет всю process group. Heartbeat проверяет актуальные run state, lease и originating device; ошибка связи отменяет процесс. Backend сериализует admission/poll/report и device authority проверяет под блокировкой; terminal не оживает. Uncertain выдача не повторяется после рестарта. Lease tokens хранятся hash, prompt/events/answer — ciphertext; retention 7 суток и capacity 1000 requests ограничивают историю. Bridge key даёт доверенному ноутбуку возможность получать задания/публиковать ответы, поэтому хранится как отдельный секрет и никогда не встроен в APK.
+
+
 ## 1. Потоки и границы доверия
 
 [Владелец][g-owner] авторизует продукт через серверные [auth][g-auth]/device проверки; [LLM][g-model], AGENTS.md, [skill][g-skill], [repository][g-repository] content, [MCP][g-mcp]/[tool][g-tool] result, межагентный payload и [FCM][g-push] notification являются недоверенными данными. Ни одна инструкция в этих данных не меняет [policy][g-policy], не создаёт [owner][g-owner] identity и не заменяет [апрув][g-approval]. [API][g-api] URL/[LLM][g-model]/[MCP][g-mcp]/[repository][g-repository] destination выбираются как настройки [владельца][g-owner] и проверяются allowlist, а не извлекаются из произвольного prompt для сетевого доступа.
@@ -165,6 +179,7 @@ Audit append-only app [role][g-role]: actor/action/object/server time/outcome/re
 
 | Версия | Дата | Изменение |
 |---|---|---|
+| v0.2 | 13.10.2026 | Добавлен opt-in native Codex demo profile: контракт, ограничения, локальный мост; полный MVP и Android acceptance не заявлены |
 | v0.1 | 10.10.2026 | Определены [Harness][g-harness], [policy][g-policy]/[approval][g-approval]/budget, локальный [Runtime][g-runtime], delivery, threats и [recovery][g-recovery] |
 
 [g-agent]: 07-glossary.md#term-agent

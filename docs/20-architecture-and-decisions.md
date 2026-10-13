@@ -3,12 +3,36 @@
 > **Изменение 11.10.2026 (D-22):** по решению владельца целевая архитектура — Go-микросервисы и Kafka. [Принятое изменение архитектуры](21-microservices-kafka-amendment.md) заменяет прежний монолит/DB-only шину; PostgreSQL outbox сохраняется для надёжной публикации. Старые схемы одного процесса ниже — baseline до изменения, не текущая целевая топология. Первый реализованный срез Kafka описан в [DOC-022](22-kafka-first-slice.md); полный переход ещё не завершён.
 
 
+### Приоритет владельца: native Codex demo, 13.10.2026
+
+Ближайшая работа — телефон → Portway → Codex CLI на ноутбуке → progress/ответ/stop, с существующим ChatGPT-входом и read-only workspace. Это отдельный opt-in профиль [контракта](36-api-events-and-messages.md#codex-demo), не реализация всего контейнерного Runtime/reviewer/approval flow. Generic POST `/v1/runs` сохраняет admission guard. Нормативные SYS/FR/BL/TC и обязательный объём MVP не удаляются; запрос владельца задаёт порядок ближайшей поставки. Новый срок защиты не установлен. Flutter разрабатывается параллельно в отдельном чате по [DOC-061](61-android-screens-flows-and-api.md#codex-demo-client).
+
+
+Native bridge — отдельный доверенный процесс владельца на ноутбуке; исходящий poll/report API с dedicated key, без SQL/daemon socket. Control API владеет только demo queue/events; текущая D-22 топология общего execution сохраняется. Синхронная проверка lease/device определяет authority; Kafka получает безопасные audit facts. Это техническое решение под прямой запрос владельца, не замена ADR-09/16 полного Runtime.
+
+## Текущая топология, 12.10.2026
+
+D-22 применяется к коду: `control-api` (identity/config/secrets, схема `portway`) → private HTTP `execution` (run/chain/approval/result, схема `portway_execution`); у каждого своя DB-role, чужие таблицы недоступны. Outbox relay публикует Kafka, отдельный audit consumer владеет `portway_audit`. JWT/device authority проверяется через control API, не только через асинхронные события. Публичный HTTPS — отдельный Docker Tailscale Funnel. Runtime Manager и notification/query consumers ещё не реализованы. Harness/Result — локальный проверенный срез; production model/tool admission закрыт.
+
+```mermaid
+flowchart LR
+  Client["Клиент / будущий Android"] --> Funnel["Docker Tailscale Funnel"] --> API["Control API"]
+  API -->|"private HTTP + JWT/device"| Execution["Execution"]
+  API --> ControlDB[("portway")]
+  Execution --> ExecutionDB[("portway_execution")]
+  ControlDB --> Relay["Outbox relay"] --> Kafka["Kafka"]
+  Execution -->|"outbox relay"| Kafka
+  Kafka --> Audit["Audit consumer"] --> AuditDB[("portway_audit")]
+```
+
+[Фактический статус](implementation-status.md), [порядок реализации](implementation-plan.md). Диаграммы одного процесса далее — исторический baseline 10.10; их внутрипроцессные стрелки не разрешают cross-service SQL или общие транзакции.
+
 <a id="doc-020"></a>
 
 | Поле | Значение |
 |---|---|
 | Артефакт | [DOC-020][id-doc-020]; объединяет архитектурные позиции исходного каталога |
-| Версия и дата | v0.1 · 10.10.2026 |
+| Версия и дата | v0.4 · 14.10.2026 |
 | Статус | Проектный baseline; реализация и испытания NOT_RUN |
 | Основания | [ТЗ](02-technical-specification.md), [SRS](03-software-requirements-specification.md), [границы](10-project-scope-and-constraints.md), [QS](13-quality-attribute-scenarios-and-utility-tree.md) |
 | Связанные контракты | [Данные](29-data-and-state-model.md), [API](36-api-events-and-messages.md), [исполнение](40-agent-execution-and-security.md), [пакет](38-agent-package-format.md), [Android](61-android-screens-flows-and-api.md), [проверки](57-verification-and-traceability.md), [эксплуатация](52-build-deploy-and-operations.md) |
@@ -253,6 +277,14 @@ FCM --> APK : notification
 
 Навигация, тексты, возврат из callback/[push][g-push], доступность и соответствие экранов операциям находятся в [DOC-061][id-doc-061]. Контрактные DTO берутся из [DOC-036][id-doc-036]; локальный кеш всегда помечается временем и не разрешает действие без сервера.
 
+### Реализация клиента, 13.10.2026
+
+Первый пакет — `apps/portway`. Принятое инженерное решение в пределах §8: Flutter `ChangeNotifier`/`ListenableBuilder` для feature controllers, constructor injection для repositories/storage/HTTP, Material `Navigator` для небольшого стека. Смена поколения session пересоздаёт Navigator целиком; закрытые экраны старой установки не возвращаются через Back. Новая state-management зависимость пока не нужна. `http` обслуживает JSON API; `flutter_secure_storage` хранит host-bound credentials и одну незавершённую мутацию Codex. `pubspec.lock` закреплён; RU ARB генерируется `gen-l10n`.
+
+Refresh single-flight, без повтора потерянного refresh token; TOKEN_EXPIRED допускает один retry исходного запроса с тем же body/key. Logout очищает локальный доступ и сохраняет revoke-only tombstone URL/proof до ACK. Auth callback является подсказкой навигации, не доказательством входа. Отдельный Codex repository использует JSON polling 2с foreground, 5с после ошибки; dashboard 10с. Background останавливает таймеры, resume начинает со snapshot. Общий SSE, FCM и approval coordinator ещё не реализованы.
+
+Дизайн: [Figma Portway](https://www.figma.com/design/BZ7UxNzlF3OmJRhd5JS19s/portway), semantic Dark/Light → ThemeData; [решения](../DESIGN.md), [клиент и команды](../apps/portway/README.md), [локальные свидетельства](evidence/flutter-client-2026-10-13.md).
+
 <a id="decisions"></a>
 ## 9. Краткий журнал [ADR][g-traceability]
 
@@ -270,12 +302,14 @@ FCM --> APK : notification
 | <a id="adr-08"></a>[ADR-08][id-adr-08] | Удалённый [Runner][g-runner] отложен, вне базы | Нет Runner-протокола в обязательной поставке | [D-05][id-d-05]/21 |
 | <a id="adr-09"></a>[ADR-09][id-adr-09] | Локальный ограниченный [Runtime][g-runtime] через trusted Manager | Нет daemon socket у [API][g-api]/[агента][g-agent]; [TC-006][id-tc-006]/023 | [D-07][id-d-07]; [FR-030][id-fr-030]–035 |
 | <a id="adr-10"></a>[ADR-10][id-adr-10] | [GitHub][g-github] App только при S-расширении | Временный узкий credential, публикация после [review][g-review]+[approval][g-approval] | [D-10][id-d-10]/16/21 |
-| <a id="adr-11"></a>[ADR-11][id-adr-11] | [FCM][g-push] + HTTPS-туннель, первый кандидат ngrok | Реальные [Android][g-flutter]/[push][g-push]/SSE-прогоны обязательны | [D-05][id-d-05]/19 |
+| <a id="adr-11"></a>[ADR-11][id-adr-11] | [FCM][g-push] + HTTPS-туннель; текущий Docker Tailscale Funnel (ngrok — прежний кандидат) | Реальные [Android][g-flutter]/[push][g-push]/SSE-прогоны обязательны | [D-05][id-d-05]/19 |
 | <a id="adr-12"></a>[ADR-12][id-adr-12] | Один [owner][g-owner], email confirmation, серверная [device session][g-device-session] | [JWT][g-jwt-jwks] сам по себе не доказывает отсутствие отзыва; [TC-002][id-tc-002]/022 | [D-18][id-d-18] |
 | <a id="adr-13"></a>[ADR-13][id-adr-13] | Неизменяемая версия и snapshot эффективных прав | Текущие запреты могут ужесточить snapshot; [TC-004][id-tc-004]/021 | [D-13][id-d-13]/17 |
 | <a id="adr-14"></a>[ADR-14][id-adr-14] | Audit/status — внутренний Go-модуль | Защищённое чтение, причины деградации; [TC-017][id-tc-017]/031 | [D-15][id-d-15]/17 |
 | <a id="adr-15"></a>[ADR-15][id-adr-15] | Версионируемый [ZIP][g-package], [staging][g-staging] перед [activation][g-staging] | Перенос без [секретов][g-secret] и исполнения кода; [TC-015][id-tc-015]/026 | [D-11][id-d-11] |
 | <a id="adr-16"></a>[ADR-16][id-adr-16] | Единые транзакционные [бюджеты][g-budget] и [fencing][g-fencing] [stop][g-cancelled] | Нет двойного резерва/новых выдач после [stop][g-cancelled]; [TC-009][id-tc-009]/010/028 | [FR-024][id-fr-024]–026/051–054 |
+| <a id="adr-17"></a>[ADR-17][id-adr-17] | Agent Bridge v2 (14.10.2026): один мост на ноутбуке ведёт Codex CLI и Claude Code; аккаунты подключаются только OAuth-потоками официальных CLI в изолированных профилях (`CODEX_HOME`/`CLAUDE_CONFIG_DIR`), лимиты читаются без inference (`codex app-server`, OAuth usage), управление — одноразовые команды через тот же исходящий poll | Токены и коды не покидают ноутбук/шифруются (код входа стирается после выдачи, snapshot с email — AES-GCM); API делает preflight по snapshot (`AI_LIMIT_EXHAUSTED` и др.); новый audit action требует одновременного обновления relay/audit; [контракт](36-api-events-and-messages.md#agent-bridge-v2), [evidence](evidence/agent-bridge-2026-10-13.txt) | Запрос владельца 13.10.2026; не заменяет ADR-09/16 |
+| <a id="adr-18"></a>[ADR-18][id-adr-18] | Flutter 0.2.0 (14.10.2026): без внешнего state-management — `ChangeNotifier`-контроллеры и repository поверх session coordinator; единая система токенов (`PortwayColors` ThemeExtension, сетка 4 pt, радиусы 8/12/24) и одно семейство иконок Material rounded/outlined 18–24 dp; `url_launcher` только для https-страниц входа из allowlist, `flutter_markdown_plus` для ответа; демо-фикстуры только compile-time флагом `PORTWAY_FIXTURES` | Меньше зависимостей и тот же протокол идемпотентности; обычная сборка не содержит выдуманных ответов; [DESIGN.md](../DESIGN.md), [DOC-061](61-android-screens-flows-and-api.md#flutter-0-2) | Запрос владельца 13.10.2026 (редизайн); дополняет [Flutter-архитектуру](#flutter-architecture) |
 
 <a id="readiness"></a>
 ## 10. Что ещё должно подтвердиться кодом
@@ -286,6 +320,9 @@ FCM --> APK : notification
 
 | Версия | Дата | Изменение |
 |---|---|---|
+| v0.4 | 14.10.2026 | ADR-18: решения клиента 0.2.0 (состояние, токены, иконки, фикстуры). ADR-17: Agent Bridge v2 (Codex CLI + Claude Code, аккаунты через OAuth CLI, лимиты, команды моста) |
+| v0.3 | 13.10.2026 | Зафиксированы реализация Flutter, session coordinator и отдельный клиент Codex |
+| v0.2 | 13.10.2026 | Отдельный opt-in native Codex bridge и HTTP очередь, существующая D-22 топология сохраняется |
 | v0.1 | 10.10.2026 | Созданы согласованные архитектурные виды, границы модулей и журнал решений сокращённого комплекта |
 
 [g-agent]: 07-glossary.md#term-agent
@@ -451,6 +488,8 @@ FCM --> APK : notification
 [id-adr-15]: 20-architecture-and-decisions.md#adr-15
 
 [id-adr-16]: 20-architecture-and-decisions.md#adr-16
+[id-adr-17]: 20-architecture-and-decisions.md#adr-17
+[id-adr-18]: 20-architecture-and-decisions.md#adr-18
 
 [id-cw-001]: 01-product-backlog.md#cw-001
 

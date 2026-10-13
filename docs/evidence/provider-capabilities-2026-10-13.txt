@@ -1,0 +1,70 @@
+Portway IP-02a / provider protocol checks and report lifecycle
+Date: 2026-10-13 (Asia/Almaty)
+Scope: local code, HTTP fixtures, disposable PostgreSQL and Kafka.
+Owner explicitly requested code/tests without downloading a model.
+No real LLM, paid request, model download or production deployment performed.
+
+Implemented:
+- Authenticated POST /v1/providers/{id}/capability-check. Strict fixed profile,
+  If-Match and Idempotency-Key. At most two fixed-prompt generations requesting
+  128 output tokens each, total model timeout 12s, attempt deadline 15s.
+- Exact simulated tool arguments and synthetic tool-result roundtrip, bounded
+  SSE/finish/DONE/usage validation. Proposed command is never executed.
+- Control-side secret decryption using existing Vault/AAD; header-only key;
+  exact endpoint allowlist; no redirect/proxy/automatic retry.
+- Durable checking report + audit + 202 acknowledgement committed before I/O.
+  Replay never repeats I/O, including abandoned/failure attempts. Active attempt
+  rejects other keys; an expired attempt permits an explicit fresh check/key.
+- Current config/check ID/device/deadline verified before each HTTP request.
+  No transaction spans model I/O. Late reply publication uses config/check CAS;
+  update invalidates report, revocation cannot publish success.
+- Existing providers.capabilities JSONB stores endpoint/model/config/profile,
+  times, protocol flags/count/error. GET providers computes protocol_valid with
+  current binding/allowlist and DB time; successful report TTL 30min.
+- runnable stays false. TokenCounter proof, private dispatch/epochs and Runtime
+  are still prerequisites. Wire compatibility does not authorize a run.
+- provider.check_started/provider.check_completed added to the strict audit
+  event contract. Safe metadata only; relay/Kafka/consumer delivery covered.
+
+Verification:
+- Immediate modelgateway/providercheck/transport unit tests with -race: PASS.
+- Focused PostgreSQL TestBackend with -race: PASS, exit 0, 33.175s package time.
+  Six provider scenarios: validation; success/replay/expiry/invalidation; safe
+  auth failure without retry/leak; concurrent update; abandoned attempt replay;
+  revocation during first probe prevents second HTTP request and success.
+- Full make docker-test before audit extension: PASS, exit 0, integration
+  39.264s; format, vet, unit/race, OpenAPI contract, PG/Kafka integration and
+  three static builds passed.
+- Immediate audit contract unit/race after extension: PASS, exit 0.
+- Final make docker-test after audit extension: PASS, exit 0; integration
+  39.581s. Format, vet, all unit/race tests, OpenAPI, PostgreSQL/Kafka,
+  including provider audit projection/restart, and three static builds passed.
+- make docker-smoke: PASS, exit 0. Production API image non-root/read-only;
+  migrations, health, auth guard, closed readiness and restart checked locally.
+  This smoke covers the API binary; subsequent audit extension affects the
+  events worker, covered by the final full build/Kafka integration above.
+
+Issues caught during development:
+- QueryExecModeExec cannot infer JSONB encoding for the raw Report struct;
+  persistence now serializes JSON explicitly. PostgreSQL integration verified.
+- JSONB reorders acknowledgement keys; replay test now compares JSON contents
+  and separately asserts no additional model requests.
+- New audit actions require the strict event allowlist; added both actions and
+  actual relay/broker/consumer projection coverage.
+- Kafka restart test now checks raw records through the idle deadline; empty
+  rebalance polls are not mistaken for replay, and inbox dedupe cannot hide it.
+
+Documentation: OpenAPI 0.5.0, TЗ/SRS/Backlog/MoSCoW, Gateway contract, data/API/
+operations contracts, RTM, current status and implementation plan synchronized.
+All 79 BL priorities preserved: 66 M / 8 S / 4 C / 1 W. Current BL statuses:
+5 LOCAL_TESTED / 31 PARTIAL / 32 TODO / 11 DEFERRED. BL-022 / FR-017 are PARTIAL:
+connection diagnostics exist; model catalog remains outside this slice.
+No complete TC/AC is promoted to PASS. IP-02 remains IN_PROGRESS; next independent
+subtask is the private Gateway authorization contract. Real M1/M2 and verified
+full-prompt token counting still await an available model connection.
+No migration or dependency added. Production run admission remains closed.
+
+Final documentation checks: PASS — canonical ID registries and all BL priorities
+unchanged; changed-doc local links and explicit new anchors resolve; OpenAPI JSON
+valid; git diff --check clean. Test containers, networks and disposable data were
+removed by the harness cleanup. Existing production stack was not modified.

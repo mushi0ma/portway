@@ -1,10 +1,10 @@
 # Portway — навигатор проектной документации
 
-> **D-22, 11.10:** [микросервисы и Kafka](21-microservices-kafka-amendment.md) приняты владельцем. Этот amendment имеет приоритет над прежней топологией; разделение кода ещё предстоит.
+> **D-22, 11.10:** [микросервисы и Kafka](21-microservices-kafka-amendment.md) приняты владельцем. Этот amendment имеет приоритет над прежней топологией; control API, execution и audit/relay уже разделены; остальная целевая топология ещё не завершена.
 
 > Реализация начата 11.10.2026: [фактический статус Go-бэкенда](implementation-status.md), [запуск и Docker](../README.md), [OpenAPI реализованного среза](../api/openapi.json). Ниже сохранён статус проектного комплекта на 10.10; он не заменяет статус кода.
 
-**Актуально на 10.10.2026, Asia/Almaty.** Подготовлены все восемь сводных документов сокращённого плана. Всего 22 проектных артефакта: 17 рабочих и 5 справочных; навигатор и прежний указатель 07–11 отдельно не считаются. Новых обязательных проектных документов в очереди нет. Код, интеграции, реальные испытания и CW-материалы ещё не подтверждены. Защита — 12.10.2026, кандидат/репетиция — 11.10.
+**Актуально на 13.10.2026, Asia/Almaty.** [Free cloud connections/private Gateway](28-free-model-connections.md) добавлены; env-ключ настроен, реальные ограниченные probes выполнены без объявления полного accepted model. Verified tokenizer/Runtime/admission ещё нужны. Основной вход для разработки — [план реализации](implementation-plan.md), для фактов — [implementation status](implementation-status.md), для обязательств — ТЗ/SRS/Backlog/MoSCoW. Backend имеет выполненные срезы и протоколы; Runtime, реальные модели, Android/FCM и перенос ещё не приняты. Ниже история подготовки 22 проектных артефактов отделена от текущей реализации. Дата защиты 12.10 остаётся исходным решением; кандидат/репетиция 11.10 не заявляются состоявшимися.
 
 <a id="existing"></a>
 ## Что из существующего нужно поддерживать
@@ -25,7 +25,7 @@
 | Артефакт | Каноническая ответственность | Зависимые материалы |
 |---|---|---|
 | [DOC-001 Backlog](01-product-backlog.md) | [BL][g-work-ids]/[CW][g-work-ids]/[SP][g-work-ids], зависимости работ, план 8 сводных документов и сопоставление исходных DOC-ID | [ТЗ][g-requirement-ids], [SMART][g-smart], [MoSCoW][g-priorities], [RTM][g-traceability] и приёмка |
-| [DOC-002 ТЗ](02-technical-specification.md) | Назначение, [SYS][g-requirement-ids]/[QLT][g-requirement-ids], решения [D-01][id-d-01]–21, вопросы Q | [SRS][g-requirement-ids], [Vision][g-vision], границы и архитектура |
+| [DOC-002 ТЗ](02-technical-specification.md) | Назначение, [SYS][g-requirement-ids]/[QLT][g-requirement-ids], решения [D-01][id-d-01]–22, вопросы Q | [SRS][g-requirement-ids], [Vision][g-vision], границы и архитектура |
 | [DOC-003 SRS](03-software-requirements-specification.md) | [FR/NFR][g-requirement-ids], технические defaults § 4.2, интерфейсные ограничения, КМ07 | [UC][g-use-case], [QS][g-quality-scenario], [AC][g-acceptance], контракты [DOC-036][id-doc-036]/038 и тесты [DOC-057][id-doc-057] |
 | [DOC-004 SMART](04-smart-goals-and-metrics.md) | SM-цели, MX-методики, контрольные сроки, отделение цели от факта | Приёмка, план реализации, протокол |
 | [DOC-005 MoSCoW](05-moscow-prioritization.md) | 66 M / 8 S / 4 C / 1 W по 79 [BL][g-work-ids]; 4 [CW][g-work-ids] отдельно; допуск расширений | Границы, [backlog][g-work-ids], [UC][g-use-case]/[QS][g-quality-scenario]/[AC][g-acceptance] |
@@ -107,7 +107,7 @@
 
 Дополнительные отдельные [RTM][g-traceability]/[ADR][g-traceability]/тест-планы/руководства не требуются: они входят в эти файлы. При реализации уточняются существующие контракты и появляются кодовые артефакты [OpenAPI][g-api]/JSON schemas/[миграций][g-environment]/[CI][g-ci-cd], а не новая формальная очередь проектных документов. [Runner][g-runner], расписания, [GitHub][g-github] PR и дополнительный мониторинг остаются условными по [MoSCoW][g-priorities].
 
-Следующий обязательный этап: реализации 66 M-BL → реальные [Runtime][g-runtime]/две [модели][g-model]/[MCP][g-mcp]/[Android][g-flutter]/[FCM][g-push]/[хост][g-host] B → [TC][g-acceptance]/[AC][g-acceptance] и количественные измерения → candidate и [CW-001][id-cw-001]–004 с репетицией. Фактические результаты дополняют [DOC-057][id-doc-057]; введение, теория и источники курсовой ещё не написаны этими документами. Документация не закрывает работы и не доказывает достижимость оставшегося срока.
+Следующий обязательный этап: [очередь IP-01–08](implementation-plan.md) для 66 M-BL → реальные [Runtime][g-runtime]/две [модели][g-model]/[MCP][g-mcp]/[Android][g-flutter]/[FCM][g-push]/[хост][g-host] B → [TC][g-acceptance]/[AC][g-acceptance] и количественные измерения → candidate и [CW-001][id-cw-001]–004 с репетицией. Фактические результаты дополняют [DOC-057][id-doc-057]; введение, теория и источники курсовой ещё не написаны этими документами. Документация не закрывает работы и не доказывает достижимость оставшегося срока.
 
 <!-- glossary-and-id-links: определения ссылок для текста выше -->
 [g-acceptance]: 07-glossary.md#term-acceptance
@@ -233,3 +233,7 @@
 - [DOC-022: первый срез Kafka, доставка аудита и эксплуатационные ограничения](22-kafka-first-slice.md).
 
 - [Execution foundation: фактическая граница и ограничения](23-execution-foundation.md).
+
+- [Harness: модельные шаги, согласования и durable results](26-harness-turns-and-results.md).
+
+- [Потоковый модельный адаптер — IP-01](27-model-gateway.md).

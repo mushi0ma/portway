@@ -20,3 +20,5 @@
 Нужны реальный Harness, текущие ужесточения policy, Runtime Manager, grant/dispatch fencing с повторной проверкой актуального device и отменой внешней работы, модельный цикл безопасных альтернатив с лимитом отказов, FCM и Android-экран. Проверка authority перед HTTP-командой сама по себе не даёт атомарного cross-service отзыва; поэтому этот срез не выдаёт полномочий исполнителю. Число сохранённых предложений ограничено 20 на run, но это не заменяет Harness-лимит последовательных альтернатив.
 
 Проверки — [протокол](evidence/execution-sse-2026-10-12.txt): domain tests с точной границей 180 секунд, реальные PostgreSQL-транзакции и private HTTP, гонка решений, stop/replay, сохранение expired после 422 и безопасные event envelopes. Все runs/proposals проверки создаются в disposable PostgreSQL; production owner, email и реальные команды тест не создаёт.
+
+Продолжение от 12.10: [Harness](26-harness-turns-and-results.md) добавляет feed-back отказов, лимит альтернатив, dispatch intent/outcome и финальный Result. Production Runtime/grants и FCM по-прежнему не подключены.

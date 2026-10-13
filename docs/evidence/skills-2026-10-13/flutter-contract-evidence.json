@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-13",
+  "kind": "local_source_comparison",
+  "repository": "/home/mushi/Workspace/Portway",
+  "client_implemented": false,
+  "client_test_run": false,
+  "backend_tests_run": false,
+  "external_calls": false,
+  "repository_mutations": false,
+  "observations": [
+    {
+      "check": "approval wire states",
+      "result": "confirmed",
+      "value": ["pending", "approved", "rejected", "expired", "cancelled"],
+      "sources": ["api/openapi.json: components.schemas.Approval", "internal/execution/approvals.go"]
+    },
+    {
+      "check": "decision DTO and headers",
+      "result": "confirmed",
+      "value": {
+        "body": ["decision", "expected_version", "args_hash"],
+        "security": ["bearerAuth", "deviceProof"],
+        "required_header": "Idempotency-Key",
+        "key_length": [8, 200],
+        "if_match": false
+      },
+      "sources": ["api/openapi.json: /v1/approvals/{id}/decision", "internal/transport/execution.go"]
+    },
+    {
+      "check": "approval expiry is server creation plus 180 seconds; equality is expired",
+      "result": "confirmed",
+      "sources": ["internal/execution/approvals.go: RequestShellApproval/ResolveApproval", "docs/25-approval-workflow.md"]
+    },
+    {
+      "check": "same-ID approval deadline extension endpoint",
+      "result": "absent_in_current_contract",
+      "sources": ["api/openapi.json", "internal/transport/server.go", "internal/execution/approvals.go"]
+    },
+    {
+      "check": "decision replay returns current tool state after stop",
+      "result": "confirmed_by_source_not_executed",
+      "sources": ["internal/execution/approval_store.go: DecideApproval", "internal/execution/approvals_test.go", "tests/integration/approvals_test.go"]
+    },
+    {
+      "check": "approval typed errors include error.details.approval",
+      "result": "confirmed",
+      "value": ["APPROVAL_ARGUMENTS_CHANGED", "VERSION_CONFLICT", "APPROVAL_ALREADY_RESOLVED", "APPROVAL_INVALIDATED", "APPROVAL_EXPIRED", "BUDGET_EXHAUSTED"],
+      "sources": ["internal/execution/approvals.go: approvalError/ResolveApproval", "api/openapi.json: components.schemas.Error"]
+    },
+    {
+      "check": "login/refresh credential replay exception",
+      "result": "confirmed",
+      "value": {
+        "login_security": [],
+        "login_idempotency_parameter": false,
+        "refresh_security": ["deviceProof"],
+        "refresh_body": ["refresh_token"],
+        "login_result": ["session", "device_proof", "device_id", "owner"]
+      },
+      "sources": ["docs/36-api-events-and-messages.md: conventions/auth", "api/openapi.json", "internal/identity/service.go: Login/Refresh", "internal/transport/identity.go"]
+    },
+    {
+      "check": "push-token lifecycle route implemented",
+      "result": "absent_in_current_openapi_and_router",
+      "path": "/v1/devices/current/push-token",
+      "sources": ["api/openapi.json", "internal/transport/server.go", "docs/implementation-status.md"]
+    },
+    {
+      "check": "Flutter package/Dart implementation present",
+      "result": "not_found_and_owner_confirmed_absent",
+      "flutter_binary_found": "/home/mushi/.flutter/bin/flutter",
+      "sdk_version_run": false,
+      "sources": ["local rg --files inventory", "command -v flutter", "owner clarification relayed by parent"]
+    }
+  ],
+  "limitations": [
+    "No Flutter implementation, build, analyze, unit, widget or golden run.",
+    "No backend test rerun, live API call, Supabase or real FCM/device check.",
+    "Figma design not inspected.",
+    "No claim of passed TC/AC acceptance or successful real push unlink."
+  ]
+}

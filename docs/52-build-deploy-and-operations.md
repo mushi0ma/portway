@@ -3,17 +3,41 @@
 > **Изменение 11.10.2026 (D-22):** по решению владельца целевая архитектура — Go-микросервисы и Kafka. [Принятое изменение архитектуры](21-microservices-kafka-amendment.md) заменяет прежний монолит/DB-only шину; PostgreSQL outbox сохраняется для надёжной публикации. Старые схемы одного процесса ниже — baseline до изменения, не текущая целевая топология. Первый реализованный срез Kafka описан в [DOC-022](22-kafka-first-slice.md); полный переход ещё не завершён.
 
 
+> **Фактический срез 12.10:** [статус](implementation-status.md), [план](implementation-plan.md), [Harness/Result](26-harness-turns-and-results.md). Проектные структуры далее задают целевой контракт; реализованное подмножество описано в коде/миграциях и [OpenAPI JSON](../api/openapi.json). NOT_RUN baseline не отрицает выполненные инженерные проверки.
+
 <a id="doc-052"></a>
 
 | Поле | Значение |
 |---|---|
 | Артефакт | [DOC-052][id-doc-052] |
-| Версия и дата | v0.1 · 10.10.2026 |
-| Статус | Проектный [runbook][g-runbook]; код, [CI][g-ci-cd], команды проекта и развёртывание ещё отсутствуют; NOT_RUN |
+| Версия и дата | v0.4 · 14.10.2026 |
+| Статус | Runbook целевого MVP и реализованного подмножества; локальные проверки/native demo — evidence, полная приёмка NOT_RUN |
 | Основания | [Архитектура](20-architecture-and-decisions.md), [безопасность/recovery](40-agent-execution-and-security.md), [SRS defaults](03-software-requirements-specification.md#defaults), [SMART](04-smart-goals-and-metrics.md#methods) |
 | Проверка результата | [AC](14-demo-acceptance-criteria.md), [план/протокол](57-verification-and-traceability.md), [backlog](01-product-backlog.md) |
 
+## Flutter Android: локальная сборка
+
+Из `apps/portway`: `flutter pub get`, `flutter analyze`, `flutter test`, `flutter build apk --debug`. SDK Flutter 3.47.2/Dart 3.13.2, target Android API 36, lock-файл включён. APK: `apps/portway/build/app/outputs/flutter-apk/app-debug.apk`, установка `adb install -r <APK>`. Это debug signing; production signing ещё не настроен. Workflow `.github/workflows/flutter.yml` добавляет отдельные client gates; удалённый CI-прогон не заявляется по локальной сборке. Подробности [README клиента](../apps/portway/README.md), [evidence](evidence/flutter-client-2026-10-13.md).
+
 <a id="environments"></a>
+<a id="codex-demo-operations"></a>
+## Native Codex и Claude Code на ноутбуке (Agent Bridge v2)
+
+Проверенные CLI: Codex 0.159.3 (вход ChatGPT) и Claude Code 2.1.296 (подписка Claude), Linux x86_64. Авторизации должны принадлежать владельцу установки; используются квоты существующих подписок, платные model API keys не нужны и мостом не выбираются (Codex только `Logged in using ChatGPT`, Claude только `authMethod=claude.ai`). Один процесс `portway codex-bridge` обслуживает оба CLI; отсутствующий или неавторизованный CLI показывается в статусе (`installed=false` / `logged_in=false`) и не мешает запуску. Мост запускается на хосте обычным пользователем, API остаётся в Docker.
+
+1. Собрать `bin/portway` (`make build-server`, Go 1.27), выполнить `make docker-test` и `make docker-smoke`.
+2. `python3 scripts/configure-codex-bridge.py` подготовит dedicated random key, workspace и пустые `PORTWAY_CLAUDE_BINARY`/`PORTWAY_BRIDGE_DATA_DIR` в игнорируемом `.env` без вывода/перезаписи существующих секретов. Пустой путь CLI = поиск `codex`/`claude` в PATH; пустой data dir = `$XDG_DATA_HOME/portway/bridge` (обычно `~/.local/share/portway/bridge`).
+3. После разрешения выполнить аддитивную миграцию 010 и пересобрать/пересоздать API **и** оба Kafka workers (`outbox-relay`, `audit`): новое audit action `codex.command_queued` старый relay отклонит и остановит очередь outbox. Старый API не стартует с новой схемой (Ready проверяет exact migration set); rollback — только binary с поддержкой 010, таблицы не удаляются.
+4. `python3 scripts/start-codex-bridge.py --check` печатает состояние входа Codex и Claude (без email и секретов) и не падает, если один CLI не авторизован. Затем `python3 scripts/start-codex-bridge.py` в отдельном терминале. Скрипт передаёт мосту только его параметры из `.env`, базовые переменные ОС, `CODEX_HOME`/`CLAUDE_CONFIG_DIR` и переменные дисплея (последние используются только чтобы открыть браузер при входе методом «на компьютере»). Ctrl+C останавливает мост, активный процесс и незавершённый вход; restart не повторяет uncertain task.
+5. В Flutter использовать HTTPS URL установки и обычный login; `GET /v1/codex/status` должен дать `connected=true` и `providers` с обоими CLI. Loopback URL `http://127.0.0.1:8080` относится только к мосту на ноутбуке.
+
+Аккаунты. Системный вход ноутбука (`~/.codex`, `~/.claude`) отображается как `codex-system`/`claude-system`; мост его не разлогинивает и не удаляет. Новый аккаунт подключается из телефона: «на телефоне» — device code ChatGPT (ChatGPT может требовать включить device-code login в Settings → Security) или ссылка Claude + вставка кода со страницы platform.claude.com; «на компьютере» — браузер открывается на ноутбуке. Каждый успешный вход создаёт отдельный профиль `accounts/<provider>/<id>/` (0700, используется как `CODEX_HOME`/`CLAUDE_CONFIG_DIR`) и становится активным; реестр `accounts.json` — 0600. Удаление выполняет logout в этом профиле и удаляет каталог; незавершённые/отменённые входы не оставляют каталогов. Лимиты читаются без inference не чаще раза в минуту на провайдера: Codex через `codex app-server` (`account/rateLimits/read`), Claude через OAuth usage endpoint с токеном профиля (best-effort, иначе `unknown`).
+
+Запуски: Codex — прежний `exec --json --sandbox read-only --ignore-user-config …` плюс `-m <model>` и `-c model_reasoning_effort=…`; Claude — `claude -p --output-format stream-json --verbose --tools Read,Grep,Glob --allowedTools Read,Grep,Glob --permission-mode dontAsk --strict-mcp-config --no-session-persistence --safe-mode --restricted [--model …] [--effort …]`, prompt через stdin, cwd = workspace, тот же 9-минутный лимит. `--bare` не используется: он отключает OAuth подписки. Окружение CLI собирается явно (HOME, PATH, USER, SHELL, XDG_*, SSL_*, профиль); ключи Portway, `*_API_KEY` и переменные родительского Claude Code не передаются.
+
+Мост не устанавливается как автозапускаемая системная служба этим срезом. Ноутбук должен бодрствовать, CLI иметь рабочую авторизацию и сеть; offline видно клиенту. Endpoint `/readyz` и generic `operations.run` остаются закрыты для полного MVP; готовность demo определяется `/v1/codex/status`, а не общим ready. Протокол текущих тестов: [Codex bridge evidence](evidence/codex-bridge-2026-10-13.txt). 13.10 production обновлён до 001–009; live checks и native heartbeat PASS. Native bridge тогда был запущен в background; PID/log в игнорируемых `.tmp/codex-bridge.pid`/`.tmp/codex-bridge.log` (14.10 процесс с этим PID не работает). Agent Bridge v2: [evidence 14.10](evidence/agent-bridge-2026-10-13.txt); production до миграции 010 ещё не обновлён. Это не автозапуск после перезагрузки. Для остановки отправить SIGTERM именно PID из файла (после проверки процесса), для нового запуска использовать команду выше. Реальное Android устройство пока NOT_RUN; live deploy и локальный native roundtrip различаются в evidence.
+
+
 ## 1. Окружения и минимальный состав
 
 | Окружение | Назначение / зависимости | Что не доказывает |
@@ -95,7 +119,7 @@ make smoke
 4. Поднять HTTPS-туннель к loopback [API][g-api]. По решению владельца от 11.10 текущая установка использует Tailscale Funnel с постоянным DNS-именем узла; настройка и Supabase callback описаны в [инструкции развёртывания](../deploy/supabase/README.md). Проверить сертификат, route с физического телефона, отсутствие buffering/обрывов [SSE][g-sse]. Проверка текущего HTTP API через Funnel не подтверждает работу SSE: streaming ещё не реализован и требует отдельной проверки после добавления.
 5. Настроить [Supabase][g-supabase] email link на фиксированный [HTTPS][g-https] `/auth/confirm`, [Android][g-flutter] callback scheme; пройти setup/регистрацию/email confirmation/вход. После claim [setup proof][g-device-session] больше не принимает нового [owner][g-owner].
 6. Установить [APK][g-apk], ввести текущий [HTTPS][g-https] [API][g-api] URL, войти, выдать notification permission по желанию [владельца][g-owner], проверить token registration. Server [push][g-push] accepted не равен delivery на телефоне.
-7. Создать [provider][g-provider] bindings для M1/M2, выполнить реальные capability probes, настроить [MCP][g-mcp] и [repository][g-repository] source/commit. Создать [coder][g-main-roles]/[reviewer][g-main-roles], направленную link и completion [hook][g-hook]. Проверить negative [policy][g-policy] до настоящих shell [tools][g-tool].
+7. Реализованный probe вызывается с `If-Match`, `Idempotency-Key` и `{"profile":"chat-completions-v1"}`; 202 acknowledgement, текущий результат/`protocol_valid` — GET providers. Не повторять запрос с новым key для восстановления потерянного ответа: тот же key безопасно воспроизводит acknowledgement. Перед реальным probe выбрать endpoint и учитывать максимум две генерации по 128 запрошенных output tokens плюс input. [Детали и сроки отчёта](27-model-gateway.md#capability-check). Создать [provider][g-provider] bindings для M1/M2, выполнить реальные capability probes, настроить [MCP][g-mcp] и [repository][g-repository] source/commit. Создать [coder][g-main-roles]/[reviewer][g-main-roles], направленную link и completion [hook][g-hook]. Проверить negative [policy][g-policy] до настоящих shell [tools][g-tool].
 8. Подготовить B с отдельным [API][g-api]/Manager и local bindings, затем мобильный перенос по [DOC-038][id-doc-038]. Только после этого выполнить полный сценарий/измерения [DOC-057][id-doc-057].
 
 Подготовленный старт ≤600 с измеряется трижды из одинакового состояния с уже скачанными images/[models][g-model] и заведёнными аккаунтами; старт включает миграционные проверки, [reconciliation][g-recovery] и реальные проверки нужных зависимостей. Недоступная зависимость делает trial неуспешным, даже если процесс запустился.
@@ -148,6 +172,9 @@ Candidate manifest: git revision/dirty [state][g-uml], [Go][g-go]/[Flutter][g-fl
 
 | Версия | Дата | Изменение |
 |---|---|---|
+| v0.4 | 14.10.2026 | Agent Bridge v2: Codex CLI + Claude Code на ноутбуке, аккаунты, лимиты, порядок миграции 010 и пересборки API/relay/audit |
+| v0.3 | 13.10.2026 | Добавлены сборка, тесты, APK и CI первого Flutter-среза |
+| v0.2 | 13.10.2026 | Добавлен opt-in native Codex demo profile: контракт, ограничения, локальный мост; полный MVP и Android acceptance не заявлены |
 | v0.1 | 10.10.2026 | Созданы контракты сборки/[CI][g-ci-cd]/config, [deployment][g-ci-cd] [steps][g-step], инструкции, [runbook][g-runbook] и сохранение [evidence][g-evidence] |
 
 [g-acceptance]: 07-glossary.md#term-acceptance

@@ -1,0 +1,110 @@
+Portway Agent Bridge v2 (Codex CLI + Claude Code) — engineering evidence
+Dates: 2026-10-13 evening .. 2026-10-14 00:30, Asia/Almaty (UTC+05).
+Workspace: /home/mushi/Workspace/Portway, HEAD 482ed7216b07e901e06034def45af724d03009b2 plus
+uncommitted changes (owner work + this slice; nothing committed by the backend agent).
+Contract: lead-approved Agent Bridge v2 contract (scratchpad, 2026-10-13) + clarifications
+written to the shared contract-changes note (also summarised in DOC-036 #agent-bridge-v2).
+Secrets: no tokens, codes, emails, prompts or answers are recorded here. Email presence is
+reported only as a boolean; device user codes only as a shape (XXXX-XXXXX).
+
+Scope (backend): migration 010_agent_bridge.sql (sha256 b5daa04654967df32a2f889971989b6d42f499343612e40fd98a1cd21063526f),
+/v1/codex/* extension (provider/model/effort, preflight 409/429, run metadata, preview, filters),
+account/usage commands, internal state/ack routes, encrypted bridge snapshot, laptop bridge with
+Codex (app-server JSON-RPC + exec) and Claude Code (auth status/login, OAuth usage, stream-json)
+adapters, isolated account profiles, OpenAPI 0.8.0, scripts, docs.
+
+Installed CLIs observed: codex-cli 0.159.3, Claude Code 2.1.296 (Linux x86_64).
+
+1. Static checks and unit tests (host Go 1.27.1)
+   make fmt-check lint test-contract    -> PASS (gofmt clean, go vet clean, api contract ok)
+   make test-unit (go test -race ./internal/...) -> PASS (codexbridge 35.6 s with race)
+   make build-server                    -> PASS (bin/portway, bin/events, bin/execution)
+   Unit coverage added: Codex rate limits -> windows/status (ok/warning/exhausted, clamp, unknown),
+   Claude OAuth usage -> windows/status (+limits[].percent), plan mapping, OSC-8/ST URL extraction,
+   login URL allowlist, failure classification strings, CLI version parsing, snapshot validation
+   (11 negative cases), preview, registry 0700/0600 + orphan cleanup + labels, Codex exec args
+   (-m, model_reasoning_effort), CODEX_HOME per profile, env isolation (OPENAI_API_KEY,
+   ANTHROPIC_API_KEY, PORTWAY_*, parent CLAUDECODE vars never reach a CLI), limit/auth/timeout
+   codes, Claude stream-json (init model, tool_use not leaked, result usage, rate_limit_event),
+   Go fake CLIs for app-server login (device code, approve, cancel) and claude code-paste login
+   (good/bad code), worker ack/state push/run meta, lost-authority cancellation.
+
+2. Integration (disposable PostgreSQL 17, fake Supabase auth, host Go; Go fake CLIs)
+   scratchpad itest.sh -> go test -run '^TestBackend$' ./tests/integration -> PASS (54.5 s)
+   Covered: status before snapshot (providers [], login null, commands []), v1 bridge job still
+   runs Codex (backward compatible), snapshot encrypted (email marker absent from ciphertext),
+   400 for unknown provider/bad model/unknown model/unsupported Codex effort/unknown field,
+   Claude haiku run (effort dropped) with resolved_model/account_label/tokens/prompt_preview,
+   Codex gpt-mini+high run, ?provider filter, AI_LIMIT_EXHAUSTED failed run + event code without
+   CLI text, usage_refresh -> exhausted snapshot -> 429 AI_LIMIT_EXHAUSTED details
+   {provider, reset_at}, Claude phone login (URL + code) -> new active profile, 409 AI_LOGIN_ACTIVE,
+   404/400 code validation, code payload wiped after delivery and absent from replay cache,
+   activate, 409 AI_ACCOUNT_SYSTEM, 404 unknown account, remove, Codex device-code login
+   (user code + auth.openai.com URL, 409 for pasted code), cancel, internal 403/400/413/404,
+   ack replay 200 / conflicting 409, 503 CODEX_OFFLINE with last snapshot kept, device revoke.
+
+3. Full gate on the final code (2026-10-14 ~00:25-00:30)
+   make docker-test -> PASS (make verify in golang:1.27.2 image: fmt-check, vet, race unit tests,
+     contract, integration with disposable PostgreSQL + Kafka 84.4 s incl. Kafka projection of the
+     new audit action codex.command_queued/codex_command, build-server). An earlier run on the
+     previous revision also passed (89.4 s); the only later code change fixed login_cancel waiting
+     on an unrelated flow and added the Kafka assertion.
+   make docker-smoke -> PASS ("migrations applied" incl. 010; non-root, read-only, health, auth
+     guard, readiness 503, restart). Disposable containers only (portway-api:smoke tag).
+   Host binary for the bridge: make build-server, bin/portway sha256
+     1b8ca47334e0fdd9d9a63147dc8bc95fe7fb96cd2e626c0223d76046fdff7962 (dirty tree).
+
+4. Real CLIs on this laptop (no inference unless stated)
+   PORTWAY_REAL_CLI=1 go test -run TestRealCLIInspect -v ./internal/codexbridge -> PASS
+     codex-system: logged_in=true (ChatGPT), email_present=true, plan=plus, models=7
+       (default gpt-6.1-sol, efforts low/medium/high/xhigh/max), usage ok, five_hour=0 weekly=31.
+       NOTE: the 5-hour window that was exhausted on 13.10 had reset by this check, so the real
+       "exhausted" state could not be shown; it is covered by fixtures with the real 13.10 payload.
+     claude-system: logged_in=true (claude.ai), email_present=true, plan=pro (OAuth profile),
+       models=4 fixed aliases, usage ok (five_hour=47 weekly=17).
+     empty temp profiles: logged_in=false, usage null, no failure (codex model/list still works).
+   PORTWAY_REAL_CLI=1 go test -run TestRealCLILoginStartAndCancel -v ./internal/codexbridge -> PASS
+     Temporary profiles only (never ~/.codex / ~/.claude; no logout performed anywhere).
+     codex phone: waiting_user in 454 ms, url https://auth.openai.com/codex/device,
+       user_code shape XXXX-XXXXX -> device-code login IS available for this account;
+       cancel -> state cancelled, completion notification "Login was not completed", 0 dirs left.
+     claude phone: waiting_user in 201 ms, url host claude.com path /cai/oauth/authorize
+       (OSC-8 stripped), needs_code=true; cancel -> cancelled, 0 dirs left.
+     Not exercised for real: "computer" method (would open a browser on the owner's desktop),
+       completing a real login, removing a real extra account.
+   End-to-end with real CLIs through the API (disposable DB + fake auth, real bridge):
+     PORTWAY_TEST_NATIVE_CODEX_BINARY=~/.local/bin/codex PORTWAY_TEST_NATIVE_CLAUDE_BINARY=~/.local/bin/claude
+     PORTWAY_TEST_NATIVE_CODEX_WORKSPACE=<empty temp dir> PORTWAY_TEST_NATIVE_RUNS=claude,codex itest.sh
+     -> PASS (51.7 s), 2026-10-14 ~00:17:
+     snapshot: codex installed/logged_in/models=7/usage ok/2 windows; claude installed/logged_in/
+       models=4/usage ok/2 windows.
+     ONE real Claude run: prompt "Ответь одним словом: ок", model haiku, read-only flags
+       (--tools Read,Grep,Glob --permission-mode dontAsk --strict-mcp-config --safe-mode --restricted
+       --no-session-persistence) -> completed, resolved_model claude-haiku-5-5, tokens in/out 5549/4,
+       answer 4 bytes.
+     ONE real Codex run: same prompt, default model -> completed, resolved_model gpt-6.1-sol,
+       tokens in/out 12561/5, answer 4 bytes. (Expected AI_LIMIT_EXHAUSTED did not happen because
+       the window had reset; the real CLI limit error text was therefore NOT captured.)
+   python3 scripts/start-codex-bridge.py --check -> both "login OK"; with CODEX_HOME and
+     CLAUDE_CONFIG_DIR pointed to empty temp dirs -> both "not logged in…", exit 0 (not fatal).
+
+5. Not done / not verified
+   - (At agent finish) live stack not touched; deployed later by the lead, see section 6.
+   - Real AI_LIMIT_EXHAUSTED from a CLI run (classification uses known strings: "usage limit",
+     "rate limit", "limit reached", "429", Claude rate_limit_event status=rejected).
+   - claude --effort on opus/sonnet, computer-method logins, completing real OAuth logins.
+   - Android/Flutter client against these routes (frontend agent's scope).
+
+6. Live deployment (lead, 14.10.2026 00:30–00:40 Asia/Almaty; dirty checkout on 482ed72, bin/portway sha256 1b8ca473…)
+   Owner approved deploying after review. Lead re-ran: make fmt-check lint test-unit test-contract build-server -> PASS.
+   Rollback images tagged before build: portway-api:pre-010, portway-events:pre-010, portway-execution:pre-010
+     (note: pre-010 API refuses to start on schema 010; rollback requires a 010-aware binary).
+   docker compose --profile execution build api outbox-relay audit execution -> built
+   docker compose run --rm --no-deps migrate -> "migrations applied" (real Supabase)
+   docker compose --profile execution up -d --no-deps api outbox-relay audit execution -> all four healthy
+   python3 scripts/check-live.py -> all PASS, incl. "migration checksums: 10 expected migrations",
+     TLS + restricted DB roles, closed schemas, public HTTPS guards (401), readyz 503 (expected), worker readiness.
+   python3 scripts/start-codex-bridge.py --check -> Codex ChatGPT login OK; Claude subscription login OK.
+   Bridge started in background (.tmp/codex-bridge.log): "Starting Portway agent bridge (codex=true, claude=true,
+     workspace=portway, sandbox=read-only)"; no rejected bridge requests in API logs.
+   Not yet verified here: phone/emulator UI against the deployed routes (see Flutter evidence).

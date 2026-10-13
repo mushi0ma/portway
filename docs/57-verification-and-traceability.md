@@ -3,13 +3,34 @@
 > **Изменение 11.10.2026 (D-22):** по решению владельца целевая архитектура — Go-микросервисы и Kafka. [Принятое изменение архитектуры](21-microservices-kafka-amendment.md) заменяет прежний монолит/DB-only шину; PostgreSQL outbox сохраняется для надёжной публикации. Старые схемы одного процесса ниже — baseline до изменения, не текущая целевая топология. Первый реализованный срез Kafka описан в [DOC-022](22-kafka-first-slice.md); полный переход ещё не завершён.
 
 
+## Фактические проверки, 13.10.2026
+
+Native Codex demo проверяет отдельное подмножество запуска/истории/stop/recovery: [BL-030][id-bl-030]/033/035/036, [FR-018][id-fr-018]/021/024 остаются PARTIAL; [TC-007][id-tc-007]/008/009/030 не переводятся в полный PASS. [Реальный native roundtrip и fixture negative checks](evidence/codex-bridge-2026-10-13.txt) не доказывают rootless Runtime, reviewer, FCM или Android acceptance. CLI login — существующий ChatGPT аккаунт, API keys не использованы.
+
+
+`PARTIAL` в RTM означает подтверждённое инженерное подмножество, **не PASS полного TC/AC**. `NOT_RUN` означает отсутствие полного прогона проектного сценария; отдельные unit/fixture тесты перечислены ниже. Состав 32 TC, 20 AC и требования сохраняются.
+
+| Проверенное подмножество | Свидетельства | Остаток для приёмки |
+|---|---|---|
+| Foundation, identity/config, DB isolation | [Foundation](evidence/backend-foundation-2026-10-11.txt), [live](evidence/live-deployment-2026-10-11.txt) | Полный signup/email, Android, candidate CI |
+| Kafka outbox/inbox и audit | [Kafka](evidence/kafka-audit-2026-10-11.txt), [execution](evidence/execution-foundation-2026-10-12.txt) | Agent routing, hooks, downstream consumers |
+| SSE/retention, approvals TTL/CAS | [SSE/approvals](evidence/execution-sse-2026-10-12.txt) | FCM/Android, реальные grants, p95 |
+| Harness, budgets, alternatives, durable result | [Harness](evidence/harness-2026-10-12.txt) | Реальные LLM/Runtime, токенизация, workspace artifacts/reviewer |
+| Chat Completions HTTP/SSE adapter, tool roundtrip, usage/errors | [Gateway](evidence/model-gateway-2026-10-12.txt) | Две реальные модели, tokenizer, capabilities, production wiring |
+
+| Provider probe/report lifecycle, replay, TTL, config/device invalidation | [Capability lifecycle](evidence/provider-capabilities-2026-10-13.txt) | Реальные модели, tokenizer, private dispatch/Runtime; models list отсутствует |
+
+| Free-only cloud routing/env provision, private RPC/Harness/dispatch journal | [Free Gateway](evidence/free-model-gateway-2026-10-13.txt) | Full accepted real tool/result probe, verified tokenizer, Runtime/worker/admission; actual local model/host transfer |
+
+Окончательные TC/AC не переводятся в PASS этой таблицей. [IP-01–08](implementation-plan.md) описывают, какие зависимости ещё закрыть.
+
 <a id="doc-057"></a>
 
 | Поле | Значение |
 |---|---|
 | Артефакт | [DOC-057][id-doc-057]; единые [RTM][g-traceability], тест-план, [ПМИ][g-traceability] и форма протокола |
-| Версия и дата | v0.1 · 10.10.2026 |
-| Статус | План готов; все [TC][g-acceptance]/[AC][g-acceptance] NOT_RUN; исходов испытаний приложения нет |
+| Версия и дата | v0.5 · 13.10.2026 |
+| Статус | Частичные backend-проверки выполнены; полные TC/AC ещё не приняты |
 | Источник приёмки | [20 AC](14-demo-acceptance-criteria.md); критерии здесь не заменяются |
 | Основания | [SRS](03-software-requirements-specification.md), [UC](12-use-case-diagrams-and-specifications.md), [QS](13-quality-attribute-scenarios-and-utility-tree.md), [SMART/MX](04-smart-goals-and-metrics.md#methods) |
 | Контракты | [Архитектура](20-architecture-and-decisions.md), [данные](29-data-and-state-model.md), [API](36-api-events-and-messages.md), [безопасность](40-agent-execution-and-security.md), [пакет](38-agent-package-format.md), [Android](61-android-screens-flows-and-api.md), [операции](52-build-deploy-and-operations.md) |
@@ -97,33 +118,33 @@
 
 | Требование / приоритет | Модуль и контракт | [UC][g-use-case] / [QS][g-quality-scenario] | [AC][g-acceptance] → [TC][g-acceptance] | [BL][g-work-ids] | Статус |
 |---|---|---|---|---|---|
-| [FR-001][id-fr-001] / M | identity/audit; [auth](36-api-events-and-messages.md#auth) | [UC-001][id-uc-001], [UC-002][id-uc-002] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | [BL-100][id-bl-100] | NOT_RUN |
-| [FR-002][id-fr-002] / M | identity/audit; [auth](36-api-events-and-messages.md#auth) | [UC-001][id-uc-001], [UC-002][id-uc-002] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | [BL-100][id-bl-100] | NOT_RUN |
-| [FR-003][id-fr-003] / M | identity/audit; [auth](36-api-events-and-messages.md#auth) | [UC-002][id-uc-002], [UC-004][id-uc-004] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | [BL-100][id-bl-100] | NOT_RUN |
-| [FR-004][id-fr-004] / M | identity/audit; [auth](36-api-events-and-messages.md#auth) | [UC-018][id-uc-018] | [AC-017][id-ac-017] → [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-031][id-tc-031] | [BL-103][id-bl-103] | NOT_RUN |
-| [FR-005][id-fr-005] / M | [agents][g-agent]; [versions/roles](36-api-events-and-messages.md#agents) | [UC-005][id-uc-005] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | [BL-010][id-bl-010] | NOT_RUN |
-| [FR-006][id-fr-006] / M | [agents][g-agent]; [versions/roles](36-api-events-and-messages.md#agents) | [UC-005][id-uc-005] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | [BL-010][id-bl-010], [BL-110][id-bl-110] | NOT_RUN |
-| [FR-007][id-fr-007] / M | [agents][g-agent]; [versions/roles](36-api-events-and-messages.md#agents) | [UC-005][id-uc-005] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | [BL-011][id-bl-011], [BL-014][id-bl-014] | NOT_RUN |
-| [FR-008][id-fr-008] / M | [agents][g-agent]; [versions/roles](36-api-events-and-messages.md#agents) | [UC-005][id-uc-005] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | [BL-012][id-bl-012] | NOT_RUN |
-| [FR-009][id-fr-009] / M | [agents][g-agent]; [versions/roles](36-api-events-and-messages.md#agents) | [UC-005][id-uc-005], [UC-007][id-uc-007] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | [BL-011][id-bl-011], [BL-012][id-bl-012], [BL-030][id-bl-030] | NOT_RUN |
+| [FR-001][id-fr-001] / M | identity/audit; [auth](36-api-events-and-messages.md#auth) | [UC-001][id-uc-001], [UC-002][id-uc-002] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | [BL-100][id-bl-100] | PARTIAL |
+| [FR-002][id-fr-002] / M | identity/audit; [auth](36-api-events-and-messages.md#auth) | [UC-001][id-uc-001], [UC-002][id-uc-002] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | [BL-100][id-bl-100] | PARTIAL |
+| [FR-003][id-fr-003] / M | identity/audit; [auth](36-api-events-and-messages.md#auth) | [UC-002][id-uc-002], [UC-004][id-uc-004] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | [BL-100][id-bl-100] | PARTIAL |
+| [FR-004][id-fr-004] / M | identity/audit; [auth](36-api-events-and-messages.md#auth) | [UC-018][id-uc-018] | [AC-017][id-ac-017] → [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-031][id-tc-031] | [BL-103][id-bl-103] | PARTIAL |
+| [FR-005][id-fr-005] / M | [agents][g-agent]; [versions/roles](36-api-events-and-messages.md#agents) | [UC-005][id-uc-005] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | [BL-010][id-bl-010] | PARTIAL |
+| [FR-006][id-fr-006] / M | [agents][g-agent]; [versions/roles](36-api-events-and-messages.md#agents) | [UC-005][id-uc-005] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | [BL-010][id-bl-010], [BL-110][id-bl-110] | PARTIAL |
+| [FR-007][id-fr-007] / M | [agents][g-agent]; [versions/roles](36-api-events-and-messages.md#agents) | [UC-005][id-uc-005] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | [BL-011][id-bl-011], [BL-014][id-bl-014] | PARTIAL |
+| [FR-008][id-fr-008] / M | [agents][g-agent]; [versions/roles](36-api-events-and-messages.md#agents) | [UC-005][id-uc-005] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | [BL-012][id-bl-012] | PARTIAL |
+| [FR-009][id-fr-009] / M | [agents][g-agent]; [versions/roles](36-api-events-and-messages.md#agents) | [UC-005][id-uc-005], [UC-007][id-uc-007] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | [BL-011][id-bl-011], [BL-012][id-bl-012], [BL-030][id-bl-030] | PARTIAL |
 | [FR-010][id-fr-010] / S | [agents][g-agent]; [versions/roles](36-api-events-and-messages.md#agents) | — | При включении S/C | [BL-013][id-bl-013] | OUT_OF_BASE |
-| [FR-011][id-fr-011] / M | gateway/providers; [provider](36-api-events-and-messages.md#agents) | [UC-006][id-uc-006] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | [BL-020][id-bl-020], [BL-025][id-bl-025] | NOT_RUN |
+| [FR-011][id-fr-011] / M | gateway/providers; [provider](36-api-events-and-messages.md#agents) | [UC-006][id-uc-006] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | [BL-020][id-bl-020], [BL-025][id-bl-025] | PARTIAL |
 | [FR-012][id-fr-012] / M | gateway/providers; [provider](36-api-events-and-messages.md#agents) | [UC-006][id-uc-006] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | [BL-021][id-bl-021] | NOT_RUN |
-| [FR-013][id-fr-013] / M | gateway/providers; [provider](36-api-events-and-messages.md#agents) | [UC-006][id-uc-006] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | [BL-023][id-bl-023] | NOT_RUN |
-| [FR-014][id-fr-014] / M | gateway/providers; [provider](36-api-events-and-messages.md#agents) | [UC-006][id-uc-006] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | [BL-023][id-bl-023] | NOT_RUN |
-| [FR-015][id-fr-015] / M | gateway/providers; [provider](36-api-events-and-messages.md#agents) | [UC-006][id-uc-006] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | [BL-023][id-bl-023] | NOT_RUN |
-| [FR-016][id-fr-016] / M | gateway/providers; [provider](36-api-events-and-messages.md#agents) | [UC-006][id-uc-006], [UC-016][id-uc-016] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | [BL-021][id-bl-021], [BL-023][id-bl-023], [BL-082][id-bl-082] | NOT_RUN |
-| [FR-017][id-fr-017] / S | gateway/providers; [provider](36-api-events-and-messages.md#agents) | [UC-006][id-uc-006] | При включении S/C | [BL-022][id-bl-022] | OUT_OF_BASE |
-| [FR-018][id-fr-018] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007], [UC-020][id-uc-020] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | [BL-030][id-bl-030] | NOT_RUN |
-| [FR-019][id-fr-019] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007], [UC-020][id-uc-020] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | [BL-030][id-bl-030], [BL-117][id-bl-117] | NOT_RUN |
-| [FR-020][id-fr-020] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | [BL-031][id-bl-031] | NOT_RUN |
-| [FR-021][id-fr-021] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007], [UC-008][id-uc-008] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | [BL-030][id-bl-030], [BL-032][id-bl-032] | NOT_RUN |
-| [FR-022][id-fr-022] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-008][id-uc-008] | [AC-008][id-ac-008] → [TC-008][id-tc-008], [TC-027][id-tc-027] | [BL-032][id-bl-032] | NOT_RUN |
-| [FR-023][id-fr-023] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-008][id-uc-008] | [AC-008][id-ac-008] → [TC-008][id-tc-008], [TC-027][id-tc-027] | [BL-032][id-bl-032] | NOT_RUN |
-| [FR-024][id-fr-024] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-009][id-uc-009] | [AC-009][id-ac-009] → [TC-009][id-tc-009], [TC-028][id-tc-028] | [BL-033][id-bl-033] | NOT_RUN |
-| [FR-025][id-fr-025] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007] | [AC-010][id-ac-010] → [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | [BL-034][id-bl-034] | NOT_RUN |
-| [FR-026][id-fr-026] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007] | [AC-010][id-ac-010] → [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | [BL-034][id-bl-034], [BL-051][id-bl-051] | NOT_RUN |
-| [FR-027][id-fr-027] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007], [UC-008][id-uc-008] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | [BL-023][id-bl-023], [BL-031][id-bl-031], [BL-032][id-bl-032] | NOT_RUN |
+| [FR-013][id-fr-013] / M | gateway/providers; [provider](36-api-events-and-messages.md#agents) | [UC-006][id-uc-006] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | [BL-023][id-bl-023] | PARTIAL |
+| [FR-014][id-fr-014] / M | gateway/providers; [provider](36-api-events-and-messages.md#agents) | [UC-006][id-uc-006] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | [BL-023][id-bl-023] | PARTIAL |
+| [FR-015][id-fr-015] / M | gateway/providers; [provider](36-api-events-and-messages.md#agents) | [UC-006][id-uc-006] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | [BL-023][id-bl-023] | PARTIAL |
+| [FR-016][id-fr-016] / M | gateway/providers; [provider](36-api-events-and-messages.md#agents) | [UC-006][id-uc-006], [UC-016][id-uc-016] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | [BL-021][id-bl-021], [BL-023][id-bl-023], [BL-082][id-bl-082] | PARTIAL |
+| [FR-017][id-fr-017] / S | gateway/providers; [provider](36-api-events-and-messages.md#agents) | [UC-006][id-uc-006] | При включении S/C | [BL-022][id-bl-022] | PARTIAL |
+| [FR-018][id-fr-018] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007], [UC-020][id-uc-020] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | [BL-030][id-bl-030] | PARTIAL |
+| [FR-019][id-fr-019] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007], [UC-020][id-uc-020] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | [BL-030][id-bl-030], [BL-117][id-bl-117] | PARTIAL |
+| [FR-020][id-fr-020] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | [BL-031][id-bl-031] | PARTIAL |
+| [FR-021][id-fr-021] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007], [UC-008][id-uc-008] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | [BL-030][id-bl-030], [BL-032][id-bl-032] | PARTIAL |
+| [FR-022][id-fr-022] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-008][id-uc-008] | [AC-008][id-ac-008] → [TC-008][id-tc-008], [TC-027][id-tc-027] | [BL-032][id-bl-032] | PARTIAL |
+| [FR-023][id-fr-023] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-008][id-uc-008] | [AC-008][id-ac-008] → [TC-008][id-tc-008], [TC-027][id-tc-027] | [BL-032][id-bl-032] | PARTIAL |
+| [FR-024][id-fr-024] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-009][id-uc-009] | [AC-009][id-ac-009] → [TC-009][id-tc-009], [TC-028][id-tc-028] | [BL-033][id-bl-033] | PARTIAL |
+| [FR-025][id-fr-025] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007] | [AC-010][id-ac-010] → [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | [BL-034][id-bl-034] | PARTIAL |
+| [FR-026][id-fr-026] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007] | [AC-010][id-ac-010] → [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | [BL-034][id-bl-034], [BL-051][id-bl-051] | PARTIAL |
+| [FR-027][id-fr-027] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-007][id-uc-007], [UC-008][id-uc-008] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | [BL-023][id-bl-023], [BL-031][id-bl-031], [BL-032][id-bl-032] | PARTIAL |
 | [FR-028][id-fr-028] / S | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | — | При включении S/C | [BL-035][id-bl-035] | OUT_OF_BASE |
 | [FR-029][id-fr-029] / M | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-019][id-uc-019], [UC-020][id-uc-020] | [AC-018][id-ac-018] → [TC-018][id-tc-018], [TC-025][id-tc-025], [TC-030][id-tc-030], [TC-031][id-tc-031] | [BL-036][id-bl-036] | NOT_RUN |
 | [FR-030][id-fr-030] / M | [runtime][g-runtime]; [Manager](40-agent-execution-and-security.md#runtime) | [UC-007][id-uc-007] | [AC-006][id-ac-006] → [TC-006][id-tc-006], [TC-023][id-tc-023] | [BL-040][id-bl-040] | NOT_RUN |
@@ -133,12 +154,12 @@
 | [FR-034][id-fr-034] / M | [runtime][g-runtime]; [Manager](40-agent-execution-and-security.md#runtime) | [UC-007][id-uc-007] | [AC-006][id-ac-006] → [TC-006][id-tc-006], [TC-023][id-tc-023] | [BL-041][id-bl-041] | NOT_RUN |
 | [FR-035][id-fr-035] / M | [runtime][g-runtime]; [Manager](40-agent-execution-and-security.md#runtime) | [UC-007][id-uc-007], [UC-009][id-uc-009] | [AC-006][id-ac-006] → [TC-006][id-tc-006], [TC-023][id-tc-023] | [BL-044][id-bl-044] | NOT_RUN |
 | [FR-036][id-fr-036] / M | [runtime][g-runtime]; [Manager](40-agent-execution-and-security.md#runtime) | [UC-007][id-uc-007] | [AC-006][id-ac-006] → [TC-006][id-tc-006], [TC-023][id-tc-023] | [BL-070][id-bl-070], [BL-072][id-bl-072] | NOT_RUN |
-| [FR-037][id-fr-037] / M | [policy][g-policy]/[approvals][g-approval]; [decision](36-api-events-and-messages.md#approvals) | [UC-007][id-uc-007], [UC-012][id-uc-012] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | [BL-050][id-bl-050] | NOT_RUN |
-| [FR-038][id-fr-038] / M | [policy][g-policy]/[approvals][g-approval]; [decision](36-api-events-and-messages.md#approvals) | [UC-007][id-uc-007], [UC-012][id-uc-012] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | [BL-051][id-bl-051] | NOT_RUN |
-| [FR-039][id-fr-039] / M | [policy][g-policy]/[approvals][g-approval]; [decision](36-api-events-and-messages.md#approvals) | [UC-007][id-uc-007], [UC-012][id-uc-012] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | [BL-054][id-bl-054] | NOT_RUN |
-| [FR-040][id-fr-040] / M | [policy][g-policy]/[approvals][g-approval]; [decision](36-api-events-and-messages.md#approvals) | [UC-012][id-uc-012] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | [BL-052][id-bl-052], [BL-100][id-bl-100] | NOT_RUN |
-| [FR-041][id-fr-041] / M | [policy][g-policy]/[approvals][g-approval]; [decision](36-api-events-and-messages.md#approvals) | [UC-012][id-uc-012] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | [BL-052][id-bl-052] | NOT_RUN |
-| [FR-042][id-fr-042] / M | [policy][g-policy]/[approvals][g-approval]; [decision](36-api-events-and-messages.md#approvals) | [UC-012][id-uc-012] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | [BL-052][id-bl-052] | NOT_RUN |
+| [FR-037][id-fr-037] / M | [policy][g-policy]/[approvals][g-approval]; [decision](36-api-events-and-messages.md#approvals) | [UC-007][id-uc-007], [UC-012][id-uc-012] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | [BL-050][id-bl-050] | PARTIAL |
+| [FR-038][id-fr-038] / M | [policy][g-policy]/[approvals][g-approval]; [decision](36-api-events-and-messages.md#approvals) | [UC-007][id-uc-007], [UC-012][id-uc-012] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | [BL-051][id-bl-051] | PARTIAL |
+| [FR-039][id-fr-039] / M | [policy][g-policy]/[approvals][g-approval]; [decision](36-api-events-and-messages.md#approvals) | [UC-007][id-uc-007], [UC-012][id-uc-012] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | [BL-054][id-bl-054] | PARTIAL |
+| [FR-040][id-fr-040] / M | [policy][g-policy]/[approvals][g-approval]; [decision](36-api-events-and-messages.md#approvals) | [UC-012][id-uc-012] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | [BL-052][id-bl-052], [BL-100][id-bl-100] | PARTIAL |
+| [FR-041][id-fr-041] / M | [policy][g-policy]/[approvals][g-approval]; [decision](36-api-events-and-messages.md#approvals) | [UC-012][id-uc-012] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | [BL-052][id-bl-052] | PARTIAL |
+| [FR-042][id-fr-042] / M | [policy][g-policy]/[approvals][g-approval]; [decision](36-api-events-and-messages.md#approvals) | [UC-012][id-uc-012] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | [BL-052][id-bl-052] | PARTIAL |
 | [FR-043][id-fr-043] / M | [policy][g-policy]/[approvals][g-approval]; [decision](36-api-events-and-messages.md#approvals) | [UC-009][id-uc-009], [UC-012][id-uc-012] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | [BL-054][id-bl-054] | NOT_RUN |
 | [FR-044][id-fr-044] / M | messaging/budgets; [envelope](36-api-events-and-messages.md#messages) | [UC-010][id-uc-010] | [AC-013][id-ac-013] → [TC-013][id-tc-013], [TC-024][id-tc-024], [TC-030][id-tc-030] | [BL-063][id-bl-063] | NOT_RUN |
 | [FR-045][id-fr-045] / M | messaging/budgets; [envelope](36-api-events-and-messages.md#messages) | [UC-011][id-uc-011] | [AC-013][id-ac-013] → [TC-013][id-tc-013], [TC-024][id-tc-024], [TC-030][id-tc-030] | [BL-060][id-bl-060] | NOT_RUN |
@@ -149,13 +170,13 @@
 | [FR-050][id-fr-050] / M | messaging/budgets; [envelope](36-api-events-and-messages.md#messages) | [UC-011][id-uc-011] | [AC-014][id-ac-014] → [TC-014][id-tc-014], [TC-025][id-tc-025] | [BL-069][id-bl-069] | NOT_RUN |
 | [FR-051][id-fr-051] / M | messaging/budgets; [envelope](36-api-events-and-messages.md#messages) | [UC-011][id-uc-011] | [AC-010][id-ac-010] → [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | [BL-064][id-bl-064] | NOT_RUN |
 | [FR-052][id-fr-052] / M | messaging/budgets; [envelope](36-api-events-and-messages.md#messages) | [UC-011][id-uc-011] | [AC-010][id-ac-010] → [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | [BL-064][id-bl-064] | NOT_RUN |
-| [FR-053][id-fr-053] / M | messaging/budgets; [envelope](36-api-events-and-messages.md#messages) | [UC-011][id-uc-011] | [AC-010][id-ac-010] → [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | [BL-064][id-bl-064] | NOT_RUN |
-| [FR-054][id-fr-054] / M | messaging/budgets; [envelope](36-api-events-and-messages.md#messages) | [UC-009][id-uc-009] | [AC-009][id-ac-009] → [TC-009][id-tc-009], [TC-028][id-tc-028] | [BL-065][id-bl-065] | NOT_RUN |
+| [FR-053][id-fr-053] / M | messaging/budgets; [envelope](36-api-events-and-messages.md#messages) | [UC-011][id-uc-011] | [AC-010][id-ac-010] → [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | [BL-064][id-bl-064] | PARTIAL |
+| [FR-054][id-fr-054] / M | messaging/budgets; [envelope](36-api-events-and-messages.md#messages) | [UC-009][id-uc-009] | [AC-009][id-ac-009] → [TC-009][id-tc-009], [TC-028][id-tc-028] | [BL-065][id-bl-065] | PARTIAL |
 | [FR-055][id-fr-055] / M | messaging/budgets; [envelope](36-api-events-and-messages.md#messages) | [UC-008][id-uc-008], [UC-011][id-uc-011] | [AC-013][id-ac-013] → [TC-013][id-tc-013], [TC-024][id-tc-024], [TC-030][id-tc-030] | [BL-067][id-bl-067] | NOT_RUN |
 | [FR-056][id-fr-056] / S | [GitHub][g-github] S; [условное ADR](20-architecture-and-decisions.md#adr-10) | — | При включении S/C | [BL-070][id-bl-070] | OUT_OF_BASE |
 | [FR-057][id-fr-057] / S | [GitHub][g-github] S; [условное ADR](20-architecture-and-decisions.md#adr-10) | — | При включении S/C | [BL-071][id-bl-071] | OUT_OF_BASE |
 | [FR-058][id-fr-058] / S | [GitHub][g-github] S; [условное ADR](20-architecture-and-decisions.md#adr-10) | — | При включении S/C | [BL-071][id-bl-071] | OUT_OF_BASE |
-| [FR-059][id-fr-059] / M/S | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-011][id-uc-011] | [AC-014][id-ac-014] → [TC-014][id-tc-014], [TC-025][id-tc-025] | [BL-071][id-bl-071], [BL-118][id-bl-118] | NOT_RUN |
+| [FR-059][id-fr-059] / M/S | [runs][g-run]; [run/SSE/result](36-api-events-and-messages.md#runs) | [UC-011][id-uc-011] | [AC-014][id-ac-014] → [TC-014][id-tc-014], [TC-025][id-tc-025] | [BL-071][id-bl-071], [BL-118][id-bl-118] | PARTIAL |
 | [FR-060][id-fr-060] / M | packages; [ZIP/mapping](38-agent-package-format.md#pipeline) | [UC-015][id-uc-015] | [AC-015][id-ac-015] → [TC-015][id-tc-015], [TC-026][id-tc-026], [TC-032][id-tc-032] | [BL-080][id-bl-080] | NOT_RUN |
 | [FR-061][id-fr-061] / M | packages; [ZIP/mapping](38-agent-package-format.md#pipeline) | [UC-015][id-uc-015] | [AC-015][id-ac-015] → [TC-015][id-tc-015], [TC-026][id-tc-026], [TC-032][id-tc-032] | [BL-081][id-bl-081] | NOT_RUN |
 | [FR-062][id-fr-062] / M | packages; [ZIP/mapping](38-agent-package-format.md#pipeline) | [UC-016][id-uc-016] | [AC-015][id-ac-015] → [TC-015][id-tc-015], [TC-026][id-tc-026], [TC-032][id-tc-032] | [BL-083][id-bl-083] | NOT_RUN |
@@ -177,40 +198,40 @@
 | [FR-078][id-fr-078] / S | gateway/providers; [provider](36-api-events-and-messages.md#agents) | — | При включении S/C | [BL-024][id-bl-024] | OUT_OF_BASE |
 | [FR-079][id-fr-079] / S | audit/metrics S/C; [границы](10-project-scope-and-constraints.md#scope) | — | При включении S/C | [BL-101][id-bl-101] | OUT_OF_BASE |
 | [FR-080][id-fr-080] / C | audit/metrics S/C; [границы](10-project-scope-and-constraints.md#scope) | — | При включении S/C | [BL-102][id-bl-102] | OUT_OF_BASE |
-| [FR-081][id-fr-081] / M | identity/audit; [auth](36-api-events-and-messages.md#auth) | [UC-001][id-uc-001] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | [BL-121][id-bl-121] | NOT_RUN |
+| [FR-081][id-fr-081] / M | identity/audit; [auth](36-api-events-and-messages.md#auth) | [UC-001][id-uc-001] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | [BL-121][id-bl-121] | PARTIAL |
 | [FR-082][id-fr-082] / M | [Flutter][g-flutter]/identity; [экраны](61-android-screens-flows-and-api.md#screens) | [UC-002][id-uc-002], [UC-003][id-uc-003] | [AC-003][id-ac-003] → [TC-003][id-tc-003], [TC-022][id-tc-022], [TC-032][id-tc-032] | [BL-120][id-bl-120] | NOT_RUN |
 | [FR-083][id-fr-083] / M | [Flutter][g-flutter]/identity; [экраны](61-android-screens-flows-and-api.md#screens) | [UC-003][id-uc-003] | [AC-003][id-ac-003] → [TC-003][id-tc-003], [TC-022][id-tc-022], [TC-032][id-tc-032] | [BL-122][id-bl-122] | NOT_RUN |
-| [FR-084][id-fr-084] / M | [Flutter][g-flutter]/identity; [экраны](61-android-screens-flows-and-api.md#screens) | [UC-003][id-uc-003] | [AC-003][id-ac-003] → [TC-003][id-tc-003], [TC-022][id-tc-022], [TC-032][id-tc-032] | [BL-123][id-bl-123] | NOT_RUN |
-| [FR-085][id-fr-085] / M | identity/audit; [auth](36-api-events-and-messages.md#auth) | [UC-004][id-uc-004] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | [BL-124][id-bl-124] | NOT_RUN |
+| [FR-084][id-fr-084] / M | [Flutter][g-flutter]/identity; [экраны](61-android-screens-flows-and-api.md#screens) | [UC-003][id-uc-003] | [AC-003][id-ac-003] → [TC-003][id-tc-003], [TC-022][id-tc-022], [TC-032][id-tc-032] | [BL-123][id-bl-123] | PARTIAL |
+| [FR-085][id-fr-085] / M | identity/audit; [auth](36-api-events-and-messages.md#auth) | [UC-004][id-uc-004] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | [BL-124][id-bl-124] | PARTIAL |
 | [FR-086][id-fr-086] / M | [push][g-push]/identity; [lifecycle](61-android-screens-flows-and-api.md#push) | [UC-014][id-uc-014] | [AC-012][id-ac-012] → [TC-012][id-tc-012], [TC-032][id-tc-032] | [BL-125][id-bl-125] | NOT_RUN |
-| [FR-087][id-fr-087] / M | [agents][g-agent]; [versions/roles](36-api-events-and-messages.md#agents) | [UC-005][id-uc-005] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | [BL-014][id-bl-014] | NOT_RUN |
+| [FR-087][id-fr-087] / M | [agents][g-agent]; [versions/roles](36-api-events-and-messages.md#agents) | [UC-005][id-uc-005] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | [BL-014][id-bl-014] | PARTIAL |
 | [FR-088][id-fr-088] / M | packages; [ZIP/mapping](38-agent-package-format.md#pipeline) | [UC-017][id-uc-017] | [AC-016][id-ac-016] → [TC-016][id-tc-016], [TC-026][id-tc-026] | [BL-084][id-bl-084] | NOT_RUN |
-| [FR-089][id-fr-089] / M | audit/status; [read API](36-api-events-and-messages.md#operations) | [UC-018][id-uc-018] | [AC-017][id-ac-017] → [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-031][id-tc-031] | [BL-104][id-bl-104] | NOT_RUN |
+| [FR-089][id-fr-089] / M | audit/status; [read API](36-api-events-and-messages.md#operations) | [UC-018][id-uc-018] | [AC-017][id-ac-017] → [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-031][id-tc-031] | [BL-104][id-bl-104] | PARTIAL |
 | [FR-090][id-fr-090] / M | [Flutter][g-flutter]/identity; [экраны](61-android-screens-flows-and-api.md#screens) | [UC-002][id-uc-002], [UC-003][id-uc-003] | [AC-003][id-ac-003] → [TC-003][id-tc-003], [TC-022][id-tc-022], [TC-032][id-tc-032] | [BL-008][id-bl-008], [BL-009][id-bl-009] | NOT_RUN |
-| [NFR-001][id-nfr-001] / M | identity/[policy][g-policy]/[runtime][g-runtime]/packages; [защиты](40-agent-execution-and-security.md#threats) | [QS-005][id-qs-005], [UC-006][id-uc-006] | [AC-017][id-ac-017] → [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-031][id-tc-031] | [BL-025][id-bl-025] | NOT_RUN |
+| [NFR-001][id-nfr-001] / M | identity/[policy][g-policy]/[runtime][g-runtime]/packages; [защиты](40-agent-execution-and-security.md#threats) | [QS-005][id-qs-005], [UC-006][id-uc-006] | [AC-017][id-ac-017] → [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-031][id-tc-031] | [BL-025][id-bl-025] | PARTIAL |
 | [NFR-002][id-nfr-002] / M | identity/[policy][g-policy]/[runtime][g-runtime]/packages; [защиты](40-agent-execution-and-security.md#threats) | [QS-005][id-qs-005], [QS-019][id-qs-019], [UC-005][id-uc-005], [UC-006][id-uc-006], [UC-014][id-uc-014], [UC-015][id-uc-015], [UC-016][id-uc-016], [UC-018][id-uc-018] | [AC-006][id-ac-006], [AC-015][id-ac-015], [AC-017][id-ac-017] → [TC-006][id-tc-006], [TC-015][id-tc-015], [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-023][id-tc-023], [TC-026][id-tc-026], [TC-029][id-tc-029], [TC-031][id-tc-031], [TC-032][id-tc-032] | [BL-025][id-bl-025], [BL-081][id-bl-081] | NOT_RUN |
 | [NFR-003][id-nfr-003] / M | identity/[policy][g-policy]/[runtime][g-runtime]/packages; [защиты](40-agent-execution-and-security.md#threats) | [QS-004][id-qs-004], [UC-007][id-uc-007] | [AC-006][id-ac-006] → [TC-006][id-tc-006], [TC-023][id-tc-023] | [BL-040][id-bl-040], [BL-041][id-bl-041], [BL-045][id-bl-045] | NOT_RUN |
-| [NFR-004][id-nfr-004] / M | identity/[policy][g-policy]/[runtime][g-runtime]/packages; [защиты](40-agent-execution-and-security.md#threats) | [QS-003][id-qs-003], [UC-005][id-uc-005], [UC-007][id-uc-007], [UC-010][id-uc-010], [UC-011][id-uc-011], [UC-012][id-uc-012], [UC-016][id-uc-016], [UC-020][id-uc-020] | [AC-004][id-ac-004], [AC-006][id-ac-006], [AC-011][id-ac-011], [AC-013][id-ac-013] → [TC-004][id-tc-004], [TC-006][id-tc-006], [TC-011][id-tc-011], [TC-013][id-tc-013], [TC-021][id-tc-021], [TC-023][id-tc-023], [TC-024][id-tc-024], [TC-030][id-tc-030] | [BL-050][id-bl-050], [BL-066][id-bl-066] | NOT_RUN |
-| [NFR-005][id-nfr-005] / M | identity/[policy][g-policy]/[runtime][g-runtime]/packages; [защиты](40-agent-execution-and-security.md#threats) | [QS-001][id-qs-001], [QS-002][id-qs-002], [UC-001][id-uc-001], [UC-002][id-uc-002], [UC-003][id-uc-003], [UC-004][id-uc-004], [UC-013][id-uc-013], [UC-014][id-uc-014] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | [BL-043][id-bl-043], [BL-100][id-bl-100] | NOT_RUN |
-| [NFR-006][id-nfr-006] / M | storage/[outbox][g-outbox]/[recovery][g-recovery]; [транзакции](29-data-and-state-model.md#indexes) | [QS-008][id-qs-008], [QS-009][id-qs-009], [UC-001][id-uc-001], [UC-005][id-uc-005], [UC-008][id-uc-008], [UC-020][id-uc-020] | [AC-004][id-ac-004], [AC-008][id-ac-008], [AC-014][id-ac-014], [AC-018][id-ac-018] → [TC-004][id-tc-004], [TC-008][id-tc-008], [TC-014][id-tc-014], [TC-018][id-tc-018], [TC-021][id-tc-021], [TC-025][id-tc-025], [TC-027][id-tc-027], [TC-030][id-tc-030], [TC-031][id-tc-031] | [BL-012][id-bl-012], [BL-032][id-bl-032], [BL-052][id-bl-052] | NOT_RUN |
-| [NFR-007][id-nfr-007] / M | storage/[outbox][g-outbox]/[recovery][g-recovery]; [транзакции](29-data-and-state-model.md#indexes) | [QS-003][id-qs-003], [QS-007][id-qs-007], [UC-009][id-uc-009], [UC-010][id-uc-010], [UC-011][id-uc-011], [UC-012][id-uc-012] | [AC-007][id-ac-007], [AC-011][id-ac-011], [AC-013][id-ac-013], [AC-014][id-ac-014] → [TC-007][id-tc-007], [TC-011][id-tc-011], [TC-013][id-tc-013], [TC-014][id-tc-014], [TC-021][id-tc-021], [TC-023][id-tc-023], [TC-024][id-tc-024], [TC-025][id-tc-025], [TC-030][id-tc-030] | [BL-054][id-bl-054], [BL-061][id-bl-061], [BL-062][id-bl-062] | NOT_RUN |
+| [NFR-004][id-nfr-004] / M | identity/[policy][g-policy]/[runtime][g-runtime]/packages; [защиты](40-agent-execution-and-security.md#threats) | [QS-003][id-qs-003], [UC-005][id-uc-005], [UC-007][id-uc-007], [UC-010][id-uc-010], [UC-011][id-uc-011], [UC-012][id-uc-012], [UC-016][id-uc-016], [UC-020][id-uc-020] | [AC-004][id-ac-004], [AC-006][id-ac-006], [AC-011][id-ac-011], [AC-013][id-ac-013] → [TC-004][id-tc-004], [TC-006][id-tc-006], [TC-011][id-tc-011], [TC-013][id-tc-013], [TC-021][id-tc-021], [TC-023][id-tc-023], [TC-024][id-tc-024], [TC-030][id-tc-030] | [BL-050][id-bl-050], [BL-066][id-bl-066] | PARTIAL |
+| [NFR-005][id-nfr-005] / M | identity/[policy][g-policy]/[runtime][g-runtime]/packages; [защиты](40-agent-execution-and-security.md#threats) | [QS-001][id-qs-001], [QS-002][id-qs-002], [UC-001][id-uc-001], [UC-002][id-uc-002], [UC-003][id-uc-003], [UC-004][id-uc-004], [UC-013][id-uc-013], [UC-014][id-uc-014] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | [BL-043][id-bl-043], [BL-100][id-bl-100] | PARTIAL |
+| [NFR-006][id-nfr-006] / M | storage/[outbox][g-outbox]/[recovery][g-recovery]; [транзакции](29-data-and-state-model.md#indexes) | [QS-008][id-qs-008], [QS-009][id-qs-009], [UC-001][id-uc-001], [UC-005][id-uc-005], [UC-008][id-uc-008], [UC-020][id-uc-020] | [AC-004][id-ac-004], [AC-008][id-ac-008], [AC-014][id-ac-014], [AC-018][id-ac-018] → [TC-004][id-tc-004], [TC-008][id-tc-008], [TC-014][id-tc-014], [TC-018][id-tc-018], [TC-021][id-tc-021], [TC-025][id-tc-025], [TC-027][id-tc-027], [TC-030][id-tc-030], [TC-031][id-tc-031] | [BL-012][id-bl-012], [BL-032][id-bl-032], [BL-052][id-bl-052] | PARTIAL |
+| [NFR-007][id-nfr-007] / M | storage/[outbox][g-outbox]/[recovery][g-recovery]; [транзакции](29-data-and-state-model.md#indexes) | [QS-003][id-qs-003], [QS-007][id-qs-007], [UC-009][id-uc-009], [UC-010][id-uc-010], [UC-011][id-uc-011], [UC-012][id-uc-012] | [AC-007][id-ac-007], [AC-011][id-ac-011], [AC-013][id-ac-013], [AC-014][id-ac-014] → [TC-007][id-tc-007], [TC-011][id-tc-011], [TC-013][id-tc-013], [TC-014][id-tc-014], [TC-021][id-tc-021], [TC-023][id-tc-023], [TC-024][id-tc-024], [TC-025][id-tc-025], [TC-030][id-tc-030] | [BL-054][id-bl-054], [BL-061][id-bl-061], [BL-062][id-bl-062] | PARTIAL |
 | [NFR-008][id-nfr-008] / M | [events][g-event]/[stop][g-cancelled]/ops; [метод](#measurements) | [QS-010][id-qs-010], [UC-008][id-uc-008] | [AC-008][id-ac-008], [AC-019][id-ac-019] → [TC-008][id-tc-008], [TC-019][id-tc-019], [TC-027][id-tc-027], [TC-028][id-tc-028] | [BL-032][id-bl-032], [BL-111][id-bl-111] | NOT_RUN |
 | [NFR-009][id-nfr-009] / M | [events][g-event]/[stop][g-cancelled]/ops; [метод](#measurements) | [QS-011][id-qs-011], [UC-009][id-uc-009] | [AC-009][id-ac-009], [AC-019][id-ac-019] → [TC-009][id-tc-009], [TC-019][id-tc-019], [TC-027][id-tc-027], [TC-028][id-tc-028] | [BL-033][id-bl-033], [BL-065][id-bl-065] | NOT_RUN |
-| [NFR-010][id-nfr-010] / M | identity/[policy][g-policy]/[runtime][g-runtime]/packages; [защиты](40-agent-execution-and-security.md#threats) | [QS-012][id-qs-012], [UC-006][id-uc-006], [UC-007][id-uc-007], [UC-011][id-uc-011], [UC-012][id-uc-012] | [AC-005][id-ac-005], [AC-010][id-ac-010] → [TC-005][id-tc-005], [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | [BL-023][id-bl-023], [BL-034][id-bl-034], [BL-064][id-bl-064] | NOT_RUN |
+| [NFR-010][id-nfr-010] / M | identity/[policy][g-policy]/[runtime][g-runtime]/packages; [защиты](40-agent-execution-and-security.md#threats) | [QS-012][id-qs-012], [UC-006][id-uc-006], [UC-007][id-uc-007], [UC-011][id-uc-011], [UC-012][id-uc-012] | [AC-005][id-ac-005], [AC-010][id-ac-010] → [TC-005][id-tc-005], [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | [BL-023][id-bl-023], [BL-034][id-bl-034], [BL-064][id-bl-064] | PARTIAL |
 | [NFR-011][id-nfr-011] / M | audit/status; [контракт](36-api-events-and-messages.md#operations) | [QS-013][id-qs-013], [QS-014][id-qs-014], [UC-004][id-uc-004], [UC-007][id-uc-007], [UC-008][id-uc-008], [UC-013][id-uc-013] | [AC-007][id-ac-007], [AC-009][id-ac-009], [AC-012][id-ac-012] → [TC-007][id-tc-007], [TC-009][id-tc-009], [TC-012][id-tc-012], [TC-028][id-tc-028], [TC-030][id-tc-030], [TC-032][id-tc-032] | [BL-030][id-bl-030], [BL-051][id-bl-051], [BL-053][id-bl-053], [BL-111][id-bl-111], [BL-116][id-bl-116] | NOT_RUN |
 | [NFR-012][id-nfr-012] / M | modules/[CI][g-ci-cd]; [архитектура](20-architecture-and-decisions.md#uml-components) | [QS-018][id-qs-018], [UC-019][id-uc-019] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | [BL-003][id-bl-003] | NOT_RUN |
-| [NFR-013][id-nfr-013] / M | modules/[CI][g-ci-cd]; [архитектура](20-architecture-and-decisions.md#uml-components) | [QS-018][id-qs-018], [UC-019][id-uc-019] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | [BL-006][id-bl-006] | NOT_RUN |
-| [NFR-014][id-nfr-014] / M | modules/[CI][g-ci-cd]; [архитектура](20-architecture-and-decisions.md#uml-components) | [QS-018][id-qs-018], [UC-019][id-uc-019] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | [BL-004][id-bl-004] | NOT_RUN |
-| [NFR-015][id-nfr-015] / M | modules/[CI][g-ci-cd]; [архитектура](20-architecture-and-decisions.md#uml-components) | [QS-021][id-qs-021], [UC-007][id-uc-007] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | [BL-005][id-bl-005], [BL-007][id-bl-007], [BL-119][id-bl-119] | NOT_RUN |
-| [NFR-016][id-nfr-016] / M | modules/[CI][g-ci-cd]; [архитектура](20-architecture-and-decisions.md#uml-components) | [QS-016][id-qs-016], [UC-006][id-uc-006], [UC-017][id-uc-017] | [AC-001][id-ac-001], [AC-005][id-ac-005] → [TC-001][id-tc-001], [TC-005][id-tc-005], [TC-031][id-tc-031] | [BL-005][id-bl-005], [BL-023][id-bl-023], [BL-031][id-bl-031], [BL-042][id-bl-042] | NOT_RUN |
+| [NFR-013][id-nfr-013] / M | modules/[CI][g-ci-cd]; [архитектура](20-architecture-and-decisions.md#uml-components) | [QS-018][id-qs-018], [UC-019][id-uc-019] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | [BL-006][id-bl-006] | PARTIAL |
+| [NFR-014][id-nfr-014] / M | modules/[CI][g-ci-cd]; [архитектура](20-architecture-and-decisions.md#uml-components) | [QS-018][id-qs-018], [UC-019][id-uc-019] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | [BL-004][id-bl-004] | PARTIAL |
+| [NFR-015][id-nfr-015] / M | modules/[CI][g-ci-cd]; [архитектура](20-architecture-and-decisions.md#uml-components) | [QS-021][id-qs-021], [UC-007][id-uc-007] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | [BL-005][id-bl-005], [BL-007][id-bl-007], [BL-119][id-bl-119] | PARTIAL |
+| [NFR-016][id-nfr-016] / M | modules/[CI][g-ci-cd]; [архитектура](20-architecture-and-decisions.md#uml-components) | [QS-016][id-qs-016], [UC-006][id-uc-006], [UC-017][id-uc-017] | [AC-001][id-ac-001], [AC-005][id-ac-005] → [TC-001][id-tc-001], [TC-005][id-tc-005], [TC-031][id-tc-031] | [BL-005][id-bl-005], [BL-023][id-bl-023], [BL-031][id-bl-031], [BL-042][id-bl-042] | PARTIAL |
 | [NFR-017][id-nfr-017] / M | packages/bindings; [перенос](38-agent-package-format.md#portability) | [QS-015][id-qs-015], [UC-011][id-uc-011], [UC-015][id-uc-015], [UC-016][id-uc-016], [UC-017][id-uc-017] | [AC-016][id-ac-016] → [TC-016][id-tc-016], [TC-026][id-tc-026] | [BL-080][id-bl-080], [BL-081][id-bl-081], [BL-082][id-bl-082], [BL-084][id-bl-084] | NOT_RUN |
-| [NFR-018][id-nfr-018] / M | audit/status; [контракт](36-api-events-and-messages.md#operations) | [QS-019][id-qs-019], [UC-004][id-uc-004], [UC-007][id-uc-007], [UC-008][id-uc-008], [UC-009][id-uc-009], [UC-011][id-uc-011], [UC-013][id-uc-013], [UC-017][id-uc-017], [UC-018][id-uc-018], [UC-020][id-uc-020] | [AC-007][id-ac-007], [AC-017][id-ac-017] → [TC-007][id-tc-007], [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-030][id-tc-030], [TC-031][id-tc-031] | [BL-032][id-bl-032], [BL-067][id-bl-067], [BL-103][id-bl-103] | NOT_RUN |
+| [NFR-018][id-nfr-018] / M | audit/status; [контракт](36-api-events-and-messages.md#operations) | [QS-019][id-qs-019], [UC-004][id-uc-004], [UC-007][id-uc-007], [UC-008][id-uc-008], [UC-009][id-uc-009], [UC-011][id-uc-011], [UC-013][id-uc-013], [UC-017][id-uc-017], [UC-018][id-uc-018], [UC-020][id-uc-020] | [AC-007][id-ac-007], [AC-017][id-ac-017] → [TC-007][id-tc-007], [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-030][id-tc-030], [TC-031][id-tc-031] | [BL-032][id-bl-032], [BL-067][id-bl-067], [BL-103][id-bl-103] | PARTIAL |
 | [NFR-019][id-nfr-019] / M | [Flutter][g-flutter]; [states/a11y](61-android-screens-flows-and-api.md#states) | [QS-002][id-qs-002], [QS-014][id-qs-014], [QS-020][id-qs-020], [UC-001][id-uc-001], [UC-002][id-uc-002], [UC-003][id-uc-003], [UC-005][id-uc-005], [UC-008][id-uc-008], [UC-010][id-uc-010], [UC-012][id-uc-012], [UC-013][id-uc-013], [UC-014][id-uc-014], [UC-018][id-uc-018] | [AC-002][id-ac-002], [AC-003][id-ac-003], [AC-011][id-ac-011], [AC-012][id-ac-012] → [TC-002][id-tc-002], [TC-003][id-tc-003], [TC-011][id-tc-011], [TC-012][id-tc-012], [TC-021][id-tc-021], [TC-022][id-tc-022], [TC-023][id-tc-023], [TC-029][id-tc-029], [TC-032][id-tc-032] | [BL-110][id-bl-110], [BL-111][id-bl-111], [BL-112][id-bl-112], [BL-120][id-bl-120], [BL-122][id-bl-122] | NOT_RUN |
-| [NFR-020][id-nfr-020] / M | DTO/schema; [API](36-api-events-and-messages.md#conventions) | [QS-017][id-qs-017], [UC-006][id-uc-006], [UC-015][id-uc-015], [UC-016][id-uc-016] | [AC-001][id-ac-001], [AC-005][id-ac-005], [AC-013][id-ac-013], [AC-015][id-ac-015] → [TC-001][id-tc-001], [TC-005][id-tc-005], [TC-013][id-tc-013], [TC-015][id-tc-015], [TC-024][id-tc-024], [TC-026][id-tc-026], [TC-030][id-tc-030], [TC-031][id-tc-031], [TC-032][id-tc-032] | [BL-023][id-bl-023], [BL-060][id-bl-060], [BL-080][id-bl-080], [BL-082][id-bl-082] | NOT_RUN |
+| [NFR-020][id-nfr-020] / M | DTO/schema; [API](36-api-events-and-messages.md#conventions) | [QS-017][id-qs-017], [UC-006][id-uc-006], [UC-015][id-uc-015], [UC-016][id-uc-016] | [AC-001][id-ac-001], [AC-005][id-ac-005], [AC-013][id-ac-013], [AC-015][id-ac-015] → [TC-001][id-tc-001], [TC-005][id-tc-005], [TC-013][id-tc-013], [TC-015][id-tc-015], [TC-024][id-tc-024], [TC-026][id-tc-026], [TC-030][id-tc-030], [TC-031][id-tc-031], [TC-032][id-tc-032] | [BL-023][id-bl-023], [BL-060][id-bl-060], [BL-080][id-bl-080], [BL-082][id-bl-082] | PARTIAL |
 | [NFR-021][id-nfr-021] / M | identity/[policy][g-policy]/[runtime][g-runtime]/packages; [защиты](40-agent-execution-and-security.md#threats) | [QS-006][id-qs-006], [UC-016][id-uc-016] | [AC-015][id-ac-015] → [TC-015][id-tc-015], [TC-026][id-tc-026], [TC-032][id-tc-032] | [BL-083][id-bl-083] | NOT_RUN |
 | [NFR-022][id-nfr-022] / M | [events][g-event]/[stop][g-cancelled]/ops; [метод](#measurements) | [QS-018][id-qs-018], [UC-019][id-uc-019] | [AC-001][id-ac-001], [AC-019][id-ac-019] → [TC-001][id-tc-001], [TC-019][id-tc-019], [TC-027][id-tc-027], [TC-028][id-tc-028], [TC-031][id-tc-031] | [BL-003][id-bl-003] | NOT_RUN |
-| [NFR-023][id-nfr-023] / M | modules/[CI][g-ci-cd]; [архитектура](20-architecture-and-decisions.md#uml-components) | [QS-021][id-qs-021] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | [BL-001][id-bl-001], [BL-002][id-bl-002] | NOT_RUN |
-| [NFR-024][id-nfr-024] / M | storage/[outbox][g-outbox]/[recovery][g-recovery]; [транзакции](29-data-and-state-model.md#indexes) | [QS-009][id-qs-009], [UC-019][id-uc-019], [UC-020][id-uc-020] | [AC-018][id-ac-018] → [TC-018][id-tc-018], [TC-025][id-tc-025], [TC-030][id-tc-030], [TC-031][id-tc-031] | [BL-036][id-bl-036] | NOT_RUN |
+| [NFR-023][id-nfr-023] / M | modules/[CI][g-ci-cd]; [архитектура](20-architecture-and-decisions.md#uml-components) | [QS-021][id-qs-021] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | [BL-001][id-bl-001], [BL-002][id-bl-002] | PARTIAL |
+| [NFR-024][id-nfr-024] / M | storage/[outbox][g-outbox]/[recovery][g-recovery]; [транзакции](29-data-and-state-model.md#indexes) | [QS-009][id-qs-009], [UC-019][id-uc-019], [UC-020][id-uc-020] | [AC-018][id-ac-018] → [TC-018][id-tc-018], [TC-025][id-tc-025], [TC-030][id-tc-030], [TC-031][id-tc-031] | [BL-036][id-bl-036] | PARTIAL |
 
 <a id="work-coverage"></a>
 ## 6. Работы, инженерная готовность и курс
@@ -219,46 +240,46 @@
 
 | Работа | [AC][g-acceptance] → [TC][g-acceptance] | Статус |
 |---|---|---|
-| [BL-001][id-bl-001] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | NOT_RUN |
-| [BL-002][id-bl-002] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | NOT_RUN |
-| [BL-003][id-bl-003] | [AC-001][id-ac-001], [AC-019][id-ac-019] → [TC-001][id-tc-001], [TC-019][id-tc-019], [TC-027][id-tc-027], [TC-028][id-tc-028], [TC-031][id-tc-031] | NOT_RUN |
-| [BL-004][id-bl-004] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | NOT_RUN |
-| [BL-005][id-bl-005] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | NOT_RUN |
-| [BL-006][id-bl-006] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | NOT_RUN |
-| [BL-007][id-bl-007] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | NOT_RUN |
+| [BL-001][id-bl-001] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | PARTIAL |
+| [BL-002][id-bl-002] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | PARTIAL |
+| [BL-003][id-bl-003] | [AC-001][id-ac-001], [AC-019][id-ac-019] → [TC-001][id-tc-001], [TC-019][id-tc-019], [TC-027][id-tc-027], [TC-028][id-tc-028], [TC-031][id-tc-031] | PARTIAL |
+| [BL-004][id-bl-004] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | PARTIAL |
+| [BL-005][id-bl-005] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | PARTIAL |
+| [BL-006][id-bl-006] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | PARTIAL |
+| [BL-007][id-bl-007] | [AC-001][id-ac-001] → [TC-001][id-tc-001], [TC-031][id-tc-031] | PARTIAL |
 | [BL-008][id-bl-008] | [AC-003][id-ac-003], [AC-020][id-ac-020] → [TC-003][id-tc-003], [TC-020][id-tc-020], [TC-022][id-tc-022], [TC-032][id-tc-032] | NOT_RUN |
-| [BL-009][id-bl-009] | [AC-003][id-ac-003] → [TC-003][id-tc-003], [TC-022][id-tc-022], [TC-032][id-tc-032] | NOT_RUN |
+| [BL-009][id-bl-009] | [AC-003][id-ac-003] → [TC-003][id-tc-003], [TC-022][id-tc-022], [TC-032][id-tc-032] | PARTIAL |
 | [BL-119][id-bl-119] | [AC-020][id-ac-020] → [TC-020][id-tc-020] | NOT_RUN |
-| [BL-010][id-bl-010] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | NOT_RUN |
-| [BL-011][id-bl-011] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | NOT_RUN |
-| [BL-012][id-bl-012] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | NOT_RUN |
-| [BL-014][id-bl-014] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | NOT_RUN |
-| [BL-020][id-bl-020] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | NOT_RUN |
+| [BL-010][id-bl-010] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | PARTIAL |
+| [BL-011][id-bl-011] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | PARTIAL |
+| [BL-012][id-bl-012] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | PARTIAL |
+| [BL-014][id-bl-014] | [AC-004][id-ac-004] → [TC-004][id-tc-004], [TC-021][id-tc-021] | PARTIAL |
+| [BL-020][id-bl-020] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | PARTIAL |
 | [BL-021][id-bl-021] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | NOT_RUN |
-| [BL-023][id-bl-023] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | NOT_RUN |
-| [BL-025][id-bl-025] | [AC-005][id-ac-005], [AC-017][id-ac-017] → [TC-005][id-tc-005], [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-031][id-tc-031] | NOT_RUN |
-| [BL-030][id-bl-030] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | NOT_RUN |
-| [BL-031][id-bl-031] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | NOT_RUN |
-| [BL-032][id-bl-032] | [AC-008][id-ac-008], [AC-019][id-ac-019] → [TC-008][id-tc-008], [TC-019][id-tc-019], [TC-027][id-tc-027], [TC-028][id-tc-028] | NOT_RUN |
-| [BL-033][id-bl-033] | [AC-009][id-ac-009], [AC-019][id-ac-019] → [TC-009][id-tc-009], [TC-019][id-tc-019], [TC-027][id-tc-027], [TC-028][id-tc-028] | NOT_RUN |
-| [BL-034][id-bl-034] | [AC-010][id-ac-010] → [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | NOT_RUN |
-| [BL-036][id-bl-036] | [AC-018][id-ac-018] → [TC-018][id-tc-018], [TC-025][id-tc-025], [TC-030][id-tc-030], [TC-031][id-tc-031] | NOT_RUN |
+| [BL-023][id-bl-023] | [AC-005][id-ac-005] → [TC-005][id-tc-005] | PARTIAL |
+| [BL-025][id-bl-025] | [AC-005][id-ac-005], [AC-017][id-ac-017] → [TC-005][id-tc-005], [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-031][id-tc-031] | PARTIAL |
+| [BL-030][id-bl-030] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | PARTIAL |
+| [BL-031][id-bl-031] | [AC-007][id-ac-007] → [TC-007][id-tc-007], [TC-030][id-tc-030] | PARTIAL |
+| [BL-032][id-bl-032] | [AC-008][id-ac-008], [AC-019][id-ac-019] → [TC-008][id-tc-008], [TC-019][id-tc-019], [TC-027][id-tc-027], [TC-028][id-tc-028] | PARTIAL |
+| [BL-033][id-bl-033] | [AC-009][id-ac-009], [AC-019][id-ac-019] → [TC-009][id-tc-009], [TC-019][id-tc-019], [TC-027][id-tc-027], [TC-028][id-tc-028] | PARTIAL |
+| [BL-034][id-bl-034] | [AC-010][id-ac-010] → [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | PARTIAL |
+| [BL-036][id-bl-036] | [AC-018][id-ac-018] → [TC-018][id-tc-018], [TC-025][id-tc-025], [TC-030][id-tc-030], [TC-031][id-tc-031] | PARTIAL |
 | [BL-040][id-bl-040] | [AC-006][id-ac-006] → [TC-006][id-tc-006], [TC-023][id-tc-023] | NOT_RUN |
 | [BL-041][id-bl-041] | [AC-006][id-ac-006] → [TC-006][id-tc-006], [TC-023][id-tc-023] | NOT_RUN |
 | [BL-042][id-bl-042] | [AC-006][id-ac-006] → [TC-006][id-tc-006], [TC-023][id-tc-023] | NOT_RUN |
 | [BL-044][id-bl-044] | [AC-006][id-ac-006], [AC-018][id-ac-018] → [TC-006][id-tc-006], [TC-018][id-tc-018], [TC-023][id-tc-023], [TC-025][id-tc-025], [TC-030][id-tc-030], [TC-031][id-tc-031] | NOT_RUN |
 | [BL-045][id-bl-045] | [AC-006][id-ac-006] → [TC-006][id-tc-006], [TC-023][id-tc-023] | NOT_RUN |
-| [BL-050][id-bl-050] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | NOT_RUN |
-| [BL-051][id-bl-051] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | NOT_RUN |
-| [BL-052][id-bl-052] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | NOT_RUN |
+| [BL-050][id-bl-050] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | PARTIAL |
+| [BL-051][id-bl-051] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | PARTIAL |
+| [BL-052][id-bl-052] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | PARTIAL |
 | [BL-053][id-bl-053] | [AC-012][id-ac-012] → [TC-012][id-tc-012], [TC-032][id-tc-032] | NOT_RUN |
-| [BL-054][id-bl-054] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | NOT_RUN |
+| [BL-054][id-bl-054] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | PARTIAL |
 | [BL-060][id-bl-060] | [AC-013][id-ac-013] → [TC-013][id-tc-013], [TC-024][id-tc-024], [TC-030][id-tc-030] | NOT_RUN |
-| [BL-061][id-bl-061] | [AC-013][id-ac-013] → [TC-013][id-tc-013], [TC-024][id-tc-024], [TC-030][id-tc-030] | NOT_RUN |
+| [BL-061][id-bl-061] | [AC-013][id-ac-013] → [TC-013][id-tc-013], [TC-024][id-tc-024], [TC-030][id-tc-030] | PARTIAL |
 | [BL-062][id-bl-062] | [AC-013][id-ac-013] → [TC-013][id-tc-013], [TC-024][id-tc-024], [TC-030][id-tc-030] | NOT_RUN |
 | [BL-063][id-bl-063] | [AC-013][id-ac-013] → [TC-013][id-tc-013], [TC-024][id-tc-024], [TC-030][id-tc-030] | NOT_RUN |
-| [BL-064][id-bl-064] | [AC-010][id-ac-010] → [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | NOT_RUN |
-| [BL-065][id-bl-065] | [AC-009][id-ac-009], [AC-019][id-ac-019] → [TC-009][id-tc-009], [TC-019][id-tc-019], [TC-027][id-tc-027], [TC-028][id-tc-028] | NOT_RUN |
+| [BL-064][id-bl-064] | [AC-010][id-ac-010] → [TC-010][id-tc-010], [TC-024][id-tc-024], [TC-028][id-tc-028] | PARTIAL |
+| [BL-065][id-bl-065] | [AC-009][id-ac-009], [AC-019][id-ac-019] → [TC-009][id-tc-009], [TC-019][id-tc-019], [TC-027][id-tc-027], [TC-028][id-tc-028] | PARTIAL |
 | [BL-066][id-bl-066] | [AC-011][id-ac-011], [AC-013][id-ac-013] → [TC-011][id-tc-011], [TC-013][id-tc-013], [TC-021][id-tc-021], [TC-023][id-tc-023], [TC-024][id-tc-024], [TC-030][id-tc-030] | NOT_RUN |
 | [BL-067][id-bl-067] | [AC-013][id-ac-013] → [TC-013][id-tc-013], [TC-024][id-tc-024], [TC-030][id-tc-030] | NOT_RUN |
 | [BL-069][id-bl-069] | [AC-014][id-ac-014] → [TC-014][id-tc-014], [TC-025][id-tc-025] | NOT_RUN |
@@ -268,9 +289,9 @@
 | [BL-082][id-bl-082] | [AC-016][id-ac-016] → [TC-016][id-tc-016], [TC-026][id-tc-026] | NOT_RUN |
 | [BL-083][id-bl-083] | [AC-015][id-ac-015] → [TC-015][id-tc-015], [TC-026][id-tc-026], [TC-032][id-tc-032] | NOT_RUN |
 | [BL-084][id-bl-084] | [AC-016][id-ac-016] → [TC-016][id-tc-016], [TC-026][id-tc-026] | NOT_RUN |
-| [BL-100][id-bl-100] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | NOT_RUN |
-| [BL-103][id-bl-103] | [AC-017][id-ac-017] → [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-031][id-tc-031] | NOT_RUN |
-| [BL-104][id-bl-104] | [AC-017][id-ac-017] → [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-031][id-tc-031] | NOT_RUN |
+| [BL-100][id-bl-100] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | PARTIAL |
+| [BL-103][id-bl-103] | [AC-017][id-ac-017] → [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-031][id-tc-031] | PARTIAL |
+| [BL-104][id-bl-104] | [AC-017][id-ac-017] → [TC-017][id-tc-017], [TC-022][id-tc-022], [TC-029][id-tc-029], [TC-031][id-tc-031] | PARTIAL |
 | [BL-110][id-bl-110] | [AC-003][id-ac-003], [AC-004][id-ac-004] → [TC-003][id-tc-003], [TC-004][id-tc-004], [TC-021][id-tc-021], [TC-022][id-tc-022], [TC-032][id-tc-032] | NOT_RUN |
 | [BL-111][id-bl-111] | [AC-008][id-ac-008], [AC-019][id-ac-019] → [TC-008][id-tc-008], [TC-019][id-tc-019], [TC-027][id-tc-027], [TC-028][id-tc-028] | NOT_RUN |
 | [BL-112][id-bl-112] | [AC-011][id-ac-011] → [TC-011][id-tc-011], [TC-021][id-tc-021], [TC-023][id-tc-023] | NOT_RUN |
@@ -280,10 +301,10 @@
 | [BL-117][id-bl-117] | [AC-007][id-ac-007], [AC-009][id-ac-009] → [TC-007][id-tc-007], [TC-009][id-tc-009], [TC-028][id-tc-028], [TC-030][id-tc-030] | NOT_RUN |
 | [BL-118][id-bl-118] | [AC-007][id-ac-007], [AC-014][id-ac-014] → [TC-007][id-tc-007], [TC-014][id-tc-014], [TC-025][id-tc-025], [TC-030][id-tc-030] | NOT_RUN |
 | [BL-120][id-bl-120] | [AC-003][id-ac-003] → [TC-003][id-tc-003], [TC-022][id-tc-022], [TC-032][id-tc-032] | NOT_RUN |
-| [BL-121][id-bl-121] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | NOT_RUN |
+| [BL-121][id-bl-121] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | PARTIAL |
 | [BL-122][id-bl-122] | [AC-003][id-ac-003] → [TC-003][id-tc-003], [TC-022][id-tc-022], [TC-032][id-tc-032] | NOT_RUN |
-| [BL-123][id-bl-123] | [AC-003][id-ac-003] → [TC-003][id-tc-003], [TC-022][id-tc-022], [TC-032][id-tc-032] | NOT_RUN |
-| [BL-124][id-bl-124] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | NOT_RUN |
+| [BL-123][id-bl-123] | [AC-003][id-ac-003] → [TC-003][id-tc-003], [TC-022][id-tc-022], [TC-032][id-tc-032] | PARTIAL |
+| [BL-124][id-bl-124] | [AC-002][id-ac-002] → [TC-002][id-tc-002], [TC-022][id-tc-022], [TC-029][id-tc-029] | PARTIAL |
 | [BL-125][id-bl-125] | [AC-012][id-ac-012] → [TC-012][id-tc-012], [TC-032][id-tc-032] | NOT_RUN |
 | [CW-001][id-cw-001] | [AC-020][id-ac-020] → [TC-020][id-tc-020] | NOT_RUN |
 | [CW-002][id-cw-002] | [AC-020][id-ac-020] → [TC-020][id-tc-020] | NOT_RUN |
@@ -306,15 +327,21 @@
 | Outcome / defect | PASS / FAIL / BLOCKED / INCONCLUSIVE / NOT_RUN, дефект/причина |
 | Исполнитель / решение | Кто запускал и кто подтвердил итог; принятие [владельцем][g-owner] при реальной демонстрации |
 
-Текущий итог:32 [TC][g-acceptance] NOT_RUN,20 [AC][g-acceptance] NOT_RUN,77 обязательных [FR][g-requirement-ids] и24 [NFR][g-requirement-ids] не подтверждены испытаниями. [Evidence][g-evidence] index пуст; фиктивные PASS/видео/отчёты не создаются. После FAIL сохраняются исходный отчёт и defect, исправление повторяет затронутые [TC][g-acceptance] и полный candidate-прогон; новая влияющая revision/config требует актуальных [evidence][g-evidence]. При BLOCKED фиксируется конкретная зависимость, без снижения M и без маскировки real-проверки [fake][g-fixture].
+Текущий итог: ни один из 32 полных TC и 20 AC не принят целиком. Инженерные подмножества проверены и включены в evidence index выше; PARTIAL не снимает обязательные реальные проверки 77 FR и 24 NFR. Фиктивные PASS/видео/отчёты не создаются. После FAIL сохраняются исходный отчёт и defect, исправление повторяет затронутые [TC][g-acceptance] и полный candidate-прогон; новая влияющая revision/config требует актуальных [evidence][g-evidence]. При BLOCKED фиксируется конкретная зависимость, без снижения M и без маскировки real-проверки [fake][g-fixture].
 
 Отдельный файл протокола не обязателен: фактические результаты дополняют этот раздел/таблицу и ссылки на test-generated artifacts. Обязательный остаток после проектирования — реализация [BL][g-work-ids], внешние доступы/стенд B, реальные прогоны, фактические [CW][g-work-ids] и репетиция. Новые формальные документы по исходным71 ID не требуются.
+
+### Локальная проверка Flutter, 13.10.2026
+
+[Протокол первого клиента](evidence/flutter-client-2026-10-13.md) содержит команды, тесты auth/refresh/idempotency/logout/events, widget Dark/Light/200% и hash debug APK. Это частичные свидетельства FR-001/065/081–084/090 и BL-008/110/120–123; TC-003/022/032 и полная Android-приёмка остаются NOT_RUN. HTTP fixtures не доказывают телефонный путь через реальный bridge; backend real-Codex проверяется отдельным протоколом.
 
 ## История
 
 | Версия | Дата | Изменение |
 |---|---|---|
 | v0.1 | 10.10.2026 | Созданы32 [TC][g-acceptance],114 строк [FR][g-requirement-ids]/[NFR][g-requirement-ids] [RTM][g-traceability],70 обязательных [BL][g-work-ids]/[CW][g-work-ids] связей, [ПМИ][g-traceability] и форма фактического протокола |
+| v0.2 | 12.10.2026 | Сверены фактические backend-срезы, D-22/Funnel и статусы; добавлен [план IP-01–08](implementation-plan.md). Обязательные требования/приоритеты сохранены; полная приёмка ещё не пройдена |
+| v0.5 | 13.10.2026 | Локальный Flutter evidence без подмены Android acceptance |
 
 [g-acceptance]: 07-glossary.md#term-acceptance
 

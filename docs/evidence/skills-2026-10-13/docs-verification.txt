@@ -1,0 +1,7 @@
+PASS: все 79 строки BL идентичны; статусы и приоритеты сохранены.
+PASS: исходные явные якоря изменённых файлов сохранены; новый provider-ui локален.
+PASS: 7 уникальных новых/reused ссылок UI-08 разрешаются по tmp snapshot, включая glossary anchors и TC-005.
+PASS: добавленные строки patch без trailing whitespace.
+PASS: schema state checking/completed, runnable=false и 202 ACK сверены с зафиксированным OpenAPI 0.6.0.
+NOT_RUN: backend/Flutter/widget/fake-API/телефон/модели, deployment, удалённый CI. Исторические PASS не переисполнялись.
+Ограничение: проверены новые ссылки UI-08 и сохранность якорей; полный повторный аудит всех старых ссылок репозитория не проводился.

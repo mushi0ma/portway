@@ -1,0 +1,3 @@
+interface:
+  display_name: "Portway: Flutter"
+  short_description: "Flutter-клиент по контрактам и состояниям Portway"

@@ -3,17 +3,34 @@
 > **Изменение 11.10.2026 (D-22):** по решению владельца целевая архитектура — Go-микросервисы и Kafka. [Принятое изменение архитектуры](21-microservices-kafka-amendment.md) заменяет прежний монолит/DB-only шину; PostgreSQL outbox сохраняется для надёжной публикации. Старые схемы одного процесса ниже — baseline до изменения, не текущая целевая топология. Первый реализованный срез Kafka описан в [DOC-022](22-kafka-first-slice.md); полный переход ещё не завершён.
 
 
+> **Фактический срез 12.10:** [статус](implementation-status.md), [план](implementation-plan.md), [Harness/Result](26-harness-turns-and-results.md). Проектные структуры далее задают целевой контракт; реализованное подмножество описано в коде/миграциях и [OpenAPI JSON](../api/openapi.json). NOT_RUN baseline не отрицает выполненные инженерные проверки.
+
+> Физическая БД сейчас: migrations 001–010 (008–010 — model dispatch, Codex demo, Agent Bridge v2); `portway`, `portway_execution`, `portway_audit` изолированы. Run/chain/turn/approval/result хранятся aggregate JSONB в execution с отдельными индексами runs/approvals и history/outbox. Полный нормализованный ER ниже ещё не является применённой SQL-схемой; cross-service FK/JOIN запрещены D-22.
+
 <a id="doc-029"></a>
 
 | Поле | Значение |
 |---|---|
 | Артефакт | [DOC-029][id-doc-029] |
-| Версия и дата | v0.1 · 10.10.2026 |
+| Версия и дата | v0.3 · 14.10.2026 |
 | Статус | Проектный контракт; DDL/[миграции][g-environment] и испытания NOT_RUN |
 | Основания | [SRS § 4.2 и § 6](03-software-requirements-specification.md#defaults), [архитектура](20-architecture-and-decisions.md) |
 | Потребители | [API](36-api-events-and-messages.md), [исполнение](40-agent-execution-and-security.md), [пакет](38-agent-package-format.md), [тесты](57-verification-and-traceability.md), [эксплуатация](52-build-deploy-and-operations.md) |
 
 <a id="invariants"></a>
+<a id="codex-demo-data"></a>
+## Данные демонстрационного Codex profile
+
+Миграция 009: `portway.codex_bridge` (одна installation, instance UUID, heartbeat), `codex_runs` (owner/device, encrypted prompt/answer, state, hash lease, timestamps/expiry), `codex_events` (run+sequence PK, hash immutable payload, encrypted event). Только `portway_app` имеет бизнес-доступ; execution/relay/audit/anonymous не читают эти таблицы. Один active run обеспечен partial unique index; native bridge обращается только по HTTP.
+
+Состояния `queued → running → completed|failed|stopped`; terminal необратим. `queued` ≤60 секунд, `running` lease 30 секунд, весь run ≤10 минут; revocation →stopped, uncertainty →failed без requeue. Poll атомарно переводит queued в running и выдаёт одноразовый lease; потерянный ответ не приводит к новой выдаче. Report проверяет lease/current state/device и next sequence, сохраняет событие и terminal result в одной транзакции. Повтор завершённого одинакового report допускается, другой payload не заменяет сохранённый ответ.
+
+История ≤1000 run/installation, 7 суток; после expiry чтение не возвращает запись, cleanup при новом admission удаляет terminal и каскадные events. Последние 50 snapshot записей выдаются без prompt/answer; detail decrypt только по защищённому owner API. Prompt/answer/event AAD связан с installation,run и полем/sequence. Metadata и ciphertext отделены; итог не называют reviewer-approved Result общего Harness.
+
+<a id="agent-bridge-v2-data"></a>
+Миграция 010 (Agent Bridge v2, 14.10.2026, только добавления): в `codex_runs` — `provider` (`codex|claude`, default `codex`), `model`, `effort`, `resolved_model`, `account_label`, `input_tokens/output_tokens`; `prompt_preview` не хранится, а вычисляется при чтении из зашифрованного prompt. В `codex_bridge` — зашифрованный snapshot моста (`state_ciphertext/nonce/updated_at`, ≤64 KiB): провайдеры, аккаунты, модели, лимиты и текущий вход; snapshot содержит email аккаунтов, поэтому хранится только как AES-GCM. Новая `codex_commands`: одноразовые команды владельца мосту (`login_start|login_code|login_cancel|account_activate|account_remove|usage_refresh`), состояния `queued → delivered → done|failed`; payload (включая код входа Claude) шифруется и стирается при выдаче мосту (`CHECK state='queued' OR payload IS NULL`). Права только у `portway_app`. Контракт — [DOC-036](36-api-events-and-messages.md#agent-bridge-v2). Применена к рабочей Supabase 14.10.2026 (`check-live`: 10 миграций, checksums PASS).
+
+
 ## 1. Идентичность и инварианты
 
 Хранение — [PostgreSQL][g-supabase] в закрытой бизнес-схеме `portway`; клиент не использует anonymous Data [API][g-api] для этих таблиц. Все бизнес-строки имеют `installation_id`, [UUID][g-identifier-formats] `id`, [UTC][g-identifier-formats] `created_at`; изменяемые агрегаты — `version bigint` для [compare-and-set][g-atomicity]. Ссылки между установками запрещены составными FK `(installation_id, id)`. [Owner][g-owner] — один на installation; разные host A/B не получают общие [device sessions][g-device-session] или [секреты][g-secret].
@@ -68,7 +85,8 @@ erDiagram
 | `role_presets(id, code, group_code, catalog_version, baseline_policy)` | 5 основных / 3 subagent; код+версия уникальны; выбор [роли][g-role] не создаёт [run][g-run] |
 | `agents(id, name, current_version_id, archived_at?)` | current_version ссылается на собственную [AgentVersion][g-agent-version]; архив относится к S, обязательное чтение версии остаётся M |
 | `agent_versions(id, agent_id, ordinal, config_json, config_hash, source_import_id?)` | UNIQUE `(agent_id, ordinal)`; запрет UPDATE/DELETE конфигурации прикладными правами; исторические FK RESTRICT |
-| `providers(id, label, endpoint, model_id, secret_ref?, capabilities, checked_at, config_version)` | Endpoint — настройка [владельца][g-owner]; capability report привязан к [model][g-model]/config version, без ключа в JSON |
+| `model_dispatches(installation_id, step_id, run_id, request_hash, state, ciphertext, nonce, expires_at)` | Реализовано локальной миграцией 008: control-owned started/finished journal; reply AES-GCM с step AAD, 7 суток retention/cleanup on claim, 10000 записей; execution SQL-role доступа не имеет |
+| `providers(id, label, endpoint, model_id, secret_ref?, capabilities, checked_at, config_version)` | Endpoint — настройка [владельца][g-owner]; capability report привязан к [model][g-model]/config version, без ключа в JSON. Реализованный JSONB: check ID/profile/state/deadline/expiry/protocol, 30 мин TTL, CAS publication и invalidation; [контракт](27-model-gateway.md#capability-check). Новая миграция для отчёта не нужна |
 | `secrets(id, alias, ciphertext, nonce, key_version, state)` | UNIQUE alias в installation; [AES-256-GCM][g-encryption], UNIQUE installation/[key_version][g-encryption]/[nonce][g-encryption]; master key вне БД; [API][g-api] даёт лишь metadata |
 | `chains(id, status, deadline_at, step_limit, token_limit, spent_tokens, reserved_tokens, stop_epoch, failure_reason?)` | Общий [бюджет][g-budget] и [fencing][g-fencing]; CHECK неотрицательных остатков; `correlation_id` [API][g-api] равен [chain][g-chain].id |
 | `runs(id, chain_id, agent_version_id, provider_id, parent_run_id?, input_result_id?, state, reason?, config_snapshot, deadline_at, step_count, spent_tokens, reserved_tokens, next_event_seq, events_pruned_through, stop_epoch, terminal_at?)` | Parent внутри той же [chain][g-chain]; version/config immutable; terminal status не изменяется; per-run seq выделяется под [row lock][g-atomicity] |
@@ -183,6 +201,8 @@ stateDiagram-v2
 
 | Версия | Дата | Изменение |
 |---|---|---|
+| v0.3 | 14.10.2026 | Миграция 010: provider/model/effort/tokens запусков, зашифрованный snapshot моста и команды аккаунтов |
+| v0.2 | 13.10.2026 | Добавлен opt-in native Codex demo profile: контракт, ограничения, локальный мост; полный MVP и Android acceptance не заявлены |
 | v0.1 | 10.10.2026 | Заданы сущности, ограничения, транзакционные границы, состояния и [политика][g-policy] хранения |
 
 [g-agent]: 07-glossary.md#term-agent

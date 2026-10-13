@@ -5,17 +5,42 @@
 | Поле | Значение |
 |---|---|
 | Артефакт | [DOC-061][id-doc-061] |
-| Версия и дата | v0.1 · 10.10.2026 |
-| Статус | Проектный UX/interaction baseline; [APK][g-apk] и визуальная проверка NOT_RUN |
+| Версия и дата | v0.4 · 14.10.2026 |
+| Статус | UX baseline; клиент 0.2.0 (редизайн, Codex/Claude Code, лимиты, аккаунты ИИ) собран и проверен на эмуляторе; Android acceptance на телефоне NOT_RUN |
 | Основания | [Vision](06-product-vision.md), [SRS](03-software-requirements-specification.md), [20 UC](12-use-case-diagrams-and-specifications.md), [AC](14-demo-acceptance-criteria.md) |
 | Контракты | [API](36-api-events-and-messages.md), [данные/состояния](29-data-and-state-model.md), [пакет](38-agent-package-format.md), [Flutter-архитектура](20-architecture-and-decisions.md#flutter-architecture), [проверки](57-verification-and-traceability.md) |
 
 <a id="brief"></a>
+<a id="codex-demo-client"></a>
+## Первый вертикальный сценарий: Codex на ноутбуке
+
+13.10.2026 владелец поручил сначала предоставить настоящий prompt/answer через Codex CLI. Реализуемый Flutter-клиент использует [native Codex API](36-api-events-and-messages.md#codex-demo), [OpenAPI 0.7.0](../api/openapi.json). Полный UX/FR/UC ниже сохраняется; демонстрационный профиль не закрывает reviewer, approvals, ZIP или FCM.
+
+После существующего login: статус «Ноутбук подключён/не в сети», форма текста запроса, кнопка «Отправить», список последних задач и экран задачи с progress/ответом и «Остановить». Профиль явно показывает «Codex · только чтение». Для первой версии workspace ID фиксирован `portway`; локальный путь и bridge key не вводятся на телефоне. Каждое отправление — независимый запрос, без контекста предыдущего чата; историю пользователь читает по отдельным run IDs.
+
+Использовать `POST /v1/codex/runs` с новым UUID idempotency key и `{workspace:"portway",prompt:...}`; при транспортной неопределённости повторять тот же body/key, не создавать новый run автоматически. Ответ 202 сохраняет ID. Чтение списка/snapshot и JSON events polling `?after=next_after` раз в 2 секунды; после background/reconnect сначала snapshot. Terminal=`completed|failed|stopped`; прекращать polling, показывать `answer` при completed. Error codes 503 CODEX_OFFLINE/CODEX_DISABLED и 409 CODEX_BUSY отображать понятной причиной и действием. Stop POST `{}` с idempotency key; queued/running становится stopped, late output не возвращает задачу в running. `stopped` — server cancellation request; физический процесс может завершаться до heartbeat timeout.
+
+Существующие access JWT/device proof хранятся по правилам клиента; при 401 выполняется существующий refresh/login flow. Raw request headers, tokens, prompt и полный ответ не включать в диагностические логи. Этот контракт использует HTTP polling; подключать общий `/v1/runs/{id}/events` SSE к Codex run ID нельзя. Android acceptance этого профиля пока NOT_RUN; native backend evidence не заменяет телефон.
+
+
+<a id="flutter-0-2"></a>
+### Клиент 0.2.0: редизайн и Agent Bridge v2, 14.10.2026
+
+Целостный редизайн по Figma с правками UI/UX ([DESIGN.md](../DESIGN.md)): Splash (нативный launch screen + экран восстановления сессии) и adaptive launcher icon со знаком Portway; подключение установки; регистрация владельца с проверкой пустых/неверных полей, правилами пароля, повтором пароля и кодом настройки; ожидание подтверждения email; вход с проверкой полей и сообщением о неверных данных. Нижняя навигация (rail на широком экране): **Главная** — статус компьютера, активный ИИ-аккаунт, полоски лимитов 5 ч/неделя и баннер «Лимит исчерпан» со временем сброса и действиями; **Задачи** — история с превью запроса, поиском и фильтрами по состоянию/провайдеру; **Аккаунты ИИ** — Codex/ChatGPT и Claude Code/Claude: аккаунты, план, лимиты, «Сделать активным», удаление дополнительных, подключение через OAuth сервиса «на этом телефоне» (код устройства ChatGPT; ссылка claude.com + вставка кода) или «на компьютере», отмена; **Профиль** — владелец, установка, устройства с отзывом, тема, версия, выход с подтверждением. «Новая задача» — чат-композер: провайдер, модель и effort из snapshot моста, строка ввода, блокировка с причиной (offline, нет аккаунта, лимит). Экран задачи: запрос, ход выполнения, ответ Markdown с копированием, провайдер/модель/аккаунт/токены, остановка, коды отказа (`AI_LIMIT_EXHAUSTED` с временем сброса и др.).
+
+Контракт — [Agent Bridge v2](36-api-events-and-messages.md#agent-bridge-v2) и OpenAPI 0.8.0. Состояние читается из `GET /v1/codex/status` (≈2 с при незавершённом входе/команде), при открытии/возврате приложения запрашивается обновление лимитов. Отсутствующие поля старого API трактуются как «данных ещё нет». Демо-сборка `--dart-define=PORTWAY_FIXTURES=true` помечена лентой «ДЕМО» и не является проверкой backend. Проверки: `flutter analyze` — 0 замечаний, `flutter test` — 58 PASS, эмулятор API 36 с рабочим API (реальные лимиты, модели, запрос Claude Code → ответ, вход по коду начат/отменён) — [протокол](evidence/flutter-redesign-2026-10-13.md). Физический телефон, TalkBack, FCM, SSE обычных runs, апрувы и ZIP — NOT_RUN/не реализованы.
+
+### Фактический Flutter-срез, 13.10.2026
+
+`apps/portway`: подключение HTTPS origin/client-config, регистрация первоначального owner, login/refresh, callback к входу, главная и read-only каталог агентов, Codex composer/history/events/answer/stop, профиль/logout/смена темы и установки. Семантические цвета взяты из реального Figma-файла BZ7UxNzlF3OmJRhd5JS19s, UI-04/05 Dark/Light. Material управляет системными панелями/клавиатурой; размеры текста ниже 12 из макета подняты до 12, контейнеры растут при font scale. Полный список обязательных экранов ниже сохраняется как следующий объём.
+
+Unknown отправка сохраняет один зашифрованный body/key, host/device binding; повтор выполняется только явной кнопкой. Через 6 суток повтор блокируется до проверки истории (серверное окно idempotency — 7 суток). Offline logout хранит только revoke proof/URL, без access/refresh token. Телефонные FCM/SSE/SAF/TalkBack и полная acceptance пока NOT_RUN; [протокол локального среза](evidence/flutter-client-2026-10-13.md).
+
 ## 1. Назначение и направление интерфейса
 
 Один разработчик с телефона ставит [задачу][g-task], следит за [агентом][g-agent], решает запрос опасного действия и получает проверенный результат. Режим Operate: состояние, причина и следующее действие важнее украшения. Проверяемый главный путь — вход → [coder][g-main-roles] task → актуальный [approval][g-approval] → отдельный [review][g-review] → результат; второй — [ZIP][g-package] [export][g-export-import]/[import][g-export-import] → [mapping][g-staging] → [запуск][g-run] на другом [model][g-model]/host.
 
-Native [Android][g-flutter]/Material-компоненты [Flutter][g-flutter], системный шрифт, светлая/тёмная тема, спокойные поверхности и один акцент для основного действия. Цвет статуса сопровождается текстом/иконкой. Это проектное направление для будущей реализации; изображения/логотип/готовые экраны не заявлены. Splash использует название Portway и простой текстовый знак P, не требует отдельного raster asset. Технические IDs доступны в деталях/копировании, не вытесняют понятные названия на главном экране.
+Native [Android][g-flutter]/Material-компоненты [Flutter][g-flutter], системный шрифт, светлая/тёмная тема, спокойные поверхности и один акцент для основного действия. Цвет статуса сопровождается текстом/иконкой. Первый клиент реализует это направление по Figma; оставшиеся семейства экранов ещё не реализованы. Splash использует название Portway и простой текстовый знак P, не требует отдельного raster asset. Технические IDs доступны в деталях/копировании, не вытесняют понятные названия на главном экране.
 
 Три основные destination в нижней навигации: «Главная», «[Агенты][g-agent]», «[Задачи][g-task]». [Апрувы][g-approval] — заметный pending count и отдельный экран из главной/[задачи][g-task]; «[Пакеты][g-package]», «Связи», «Подключения», «Состояние», «Профиль» доступны из меню. Back возвращает в предыдущий экран, сохранённая navigation [state][g-uml] не восстанавливает [секреты][g-secret] или недействительную сессию.
 
@@ -147,6 +172,9 @@ Touch targets минимум 48 [dp][g-accessibility], семантически�
 
 | Версия | Дата | Изменение |
 |---|---|---|
+| v0.4 | 14.10.2026 | Клиент 0.2.0: редизайн, Agent Bridge v2 (провайдер/модель, лимиты, аккаунты ИИ), история с поиском |
+| v0.3 | 13.10.2026 | Реальный Figma и первый Flutter/Codex срез, границы проверок |
+| v0.2 | 13.10.2026 | Добавлен opt-in native Codex demo profile: контракт, ограничения, локальный мост; полный MVP и Android acceptance не заявлены |
 | v0.1 | 10.10.2026 | Созданы экранный состав, flows, контракты, тексты состояний, [approval][g-approval] [wireframe][g-ui] и [accessibility][g-accessibility] baseline |
 
 [g-accessibility]: 07-glossary.md#term-accessibility

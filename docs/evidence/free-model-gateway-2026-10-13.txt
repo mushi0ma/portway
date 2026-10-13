@@ -1,0 +1,75 @@
+Portway / free OpenRouter connections and private Gateway RPC
+Date: 2026-10-13 (Asia/Almaty)
+Scope: local code and disposable PG/Kafka; limited real free-cloud diagnostics.
+Owner requested models/agent-run development, free models only, no API credits.
+The owner populated OPENROUTER_API_KEY in ignored .env. Values were not printed.
+
+Implemented:
+- Control-only env/file key loading, free_only config; Compose excludes model
+  key from migrate/execution/relay/audit. Existing .env values preserved (0600).
+- Explicit :free IDs only. Public metadata prices checked before every generation:
+  all published pricing fields exact zero, no unknown/null/negative/rounded prices.
+  Fixed zero-price routing caps, no fallback models/providers, no plugins/BYOK.
+- Metadata GET /v1/models and owner/device POST /v1/providers/openrouter; secret
+  encrypted with installation/secret AAD; transaction/audit/replay carry no key.
+- CLI models (metadata-only) and model-probe (max two fixed-prompt generations).
+- OpenRouter-specific streaming usage accounting frame and zero-cost requirement;
+  generic Chat Completions profile retains its strict original behavior.
+- Private count/complete HTTP RPC requiring service key AND current owner/device.
+  Count resolves current execution state over HTTP, not SQL; receipt pins input
+  body hash/provider version/epoch. Complete matches current turn/reservation.
+- Migration 008: control-side encrypted replay journal; claim before model I/O,
+  no automatic replay of uncertain attempts, step-specific AES-GCM AAD. API role
+  owns journal access; execution role cannot read it. 7-day expiry, bounded size.
+- Live checks before dispatch, during generation, and before accepting reply;
+  stop/revoke/config/report changes cancel upstream work. No production TokenCounter
+  fallback or guessed budget, no public run admission or real shell execution.
+
+Local verification:
+- Immediate unit/race tests of OpenRouter pricing, free wire body/cost, config,
+  gateway/transport and all internal packages: PASS in Docker.
+- Focused PostgreSQL TestBackend (before final stop/stream extensions): PASS,
+  exit 0, package time 33.439s. Environment provision, private Gateway -> Harness
+  -> final Result, replay/uncertainty/count hash, SQL ownership guards all pass.
+- Full make docker-test before final extensions: PASS, integration 40.864s;
+  format/vet/unit-race/OpenAPI/PG-Kafka/migration-upgrade and all three builds.
+- make docker-smoke with migration 008: PASS (non-root/read-only, fresh migration,
+  health/auth guard/closed readiness/restart).
+- Final make docker-test: PASS, exit 0; integration 45.498s. Includes
+  free-only routing/streaming/config, full local private RPC -> Harness -> Result,
+  encrypted replay, uncertain dispatch, missing counter, stale provider pin,
+  cancellation while model I/O is in flight, migration/upgrade, PG/Kafka and builds.
+- Final make docker-smoke: PASS, exit 0, migration 008 and final API image.
+
+Real cloud diagnostics (no database/user-task credentials passed to test runtime):
+- Public OpenRouter /models GET via implemented client: PASS; 15 explicit zero-priced
+  text models accepted by the strict filter at the recorded inspection.
+- Seven explicitly initiated development probes; eight completion HTTP attempts
+  total. Each rechecked prices; max_tokens=128 each; no automatic retry/fallback.
+- Cohere north-mini-code:free: endpoint unavailable (404), no accepted capability.
+- Liquid lfm-2.5-2.6b:free: initial optional-profile/usage mismatch exposed; after
+  correcting the documented OpenRouter accounting frame, one real request produced
+  the exact valid tool proposal with observed cost=0, but follow-up was unavailable.
+  A final bounded probe returned TOOL_MISMATCH; full roundtrip is not accepted.
+- Google gemma-4-26b-a4b-it:free: rate-limited (429), no accepted capability.
+- No provider message/API key/prompt body was written into public errors/evidence.
+  Upstream diagnostics are safe codes only. No paid models or paid fallback used.
+  No further live probes performed after the recorded final test.
+
+Current limits / next work:
+- Key/transport reaches real cloud models; a complete stable tool/result capability
+  report is NOT yet established. No model is silently activated as ready.
+- Production TokenCounter remains absent, hence count fails before generation.
+  Full-prompt tokenizer/chat-template proof is the next task, followed by Runtime,
+  scoped execution grants, worker/admission and real agent/stop acceptance.
+- Cloud tests do not satisfy the original actual-local-model/second-host criteria.
+- Changes are local. Migration 008 is not applied to production; old deployed
+  Supabase stack remains on its last recorded 001-007 schema.
+
+Read-only GET /api/v1/key after the probes: usage=0, usage_daily=0 USD.
+Free-model counter: used=3, limit=1000, remaining=997 at inspection.
+These are account API metadata, not an inferred cost or a future quota guarantee.
+
+Final docs checks: canonical IDs and all 79 BL priorities preserved (66 M / 8 S /
+4 C / 1 W), changed-doc local paths/explicit anchors valid, OpenAPI JSON valid,
+git diff --check clean. No full TC/AC promoted to PASS. Test stacks cleaned up.

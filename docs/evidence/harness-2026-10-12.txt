@@ -1,0 +1,46 @@
+Portway Harness / durable result verification
+Date: 2026-10-12 (Asia/Almaty)
+Scope: local workspace, disposable Docker PostgreSQL + Kafka; no production deploy.
+
+make docker-test: PASS (exit 0)
+- gofmt check, go vet ./...: PASS
+- go test -race -count=1 ./internal/...: PASS
+- go test -count=1 ./api/...: PASS (implemented route/OpenAPI parity)
+- integration with PORTWAY_REQUIRE_INTEGRATION=1: PASS, 39.549s
+  TestBackend: public result through control API -> execution, authenticated read,
+    result absent 404, unauthenticated 401; existing identity/approval/SSE tests.
+  TestHarnessTransactions/tool-to-result: reservation visible before adapter call,
+    proposal -> pause -> approve -> fixture dispatch/outcome -> model final;
+    2 calls, 323 actual tokens, zero reserved, durable Result after reconciliation;
+    completion exactly once, private payload absent from history, outbox valid;
+    execution result endpoint 200 owner / 404 foreign owner.
+  TestHarnessTransactions/concurrent-and-stop: concurrent worker does not dispatch;
+    durable stop cancels model context; unknown usage charges entire reservation.
+  TestHarnessTransactions/competing-reservations: both workers count same snapshot,
+    one reservation/call wins, second RUN_CHANGED.
+  TestHarnessTransactions/stop-before-reservation: no call, step or reservation.
+  TestHarnessTransactions/rollback-and-reply-replay: duplicate event SQL failure
+    rolls back result, usage and snapshot together; retry commits once.
+  Existing migration checksum/upgrade, Kafka audit, execution transactions,
+    retention/replay: PASS.
+- static builds: portway, events, execution: PASS
+- test containers/networks/volumes cleaned up by test script.
+
+make docker-smoke: PASS (exit 0)
+- production scratch image built, non-root/read-only/cap-drop configuration.
+- disposable migrations, health, auth guard, closed execution readiness, restart.
+- no real Supabase credentials or production data used.
+
+git diff --check: PASS
+
+Domain coverage includes actual/unknown/over-reservation usage, invalid/partial
+replies, final replay/conflict, late response after stop/deadline, rejection and
+expiry observations, repeated command via another alias, policy_exhausted,
+pending/expired/duplicate dispatch, tool timeout/unknown, stop confirmation while
+dispatch outstanding, restart interruption and successful alternative reset.
+
+Limits:
+Gateway and Runtime adapters are fixtures. No actual LLM, model stream, shell
+command, workspace mutation, scoped grant or reviewer hook was exercised.
+Production Harness scheduling is not connected; POST /v1/runs remains 503
+EXECUTION_NOT_READY. No new migration, production rollout or GitHub push performed.
