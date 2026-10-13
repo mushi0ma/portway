@@ -1,0 +1,24 @@
+name: portway
+description: Android client for the Portway control plane.
+publish_to: none
+version: 0.2.0+3
+environment:
+  sdk: ^3.13.2
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  http: ^1.6.0
+  flutter_secure_storage: ^10.0.0
+  intl: any
+  url_launcher: ^6.3.2
+  flutter_markdown_plus: ^1.0.12
+  markdown: ^7.3.1
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true
+  generate: true

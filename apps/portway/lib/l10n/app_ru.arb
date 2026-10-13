@@ -1,0 +1,613 @@
+{
+  "@@locale": "ru",
+  "appTitle": "Portway",
+  "connectTitle": "Подключение к компьютеру",
+  "connectHint": "Укажите HTTPS-адрес Portway, запущенного на вашем компьютере.",
+  "connectWhereTitle": "Где взять адрес?",
+  "connectWhere": "Его показывает Portway на компьютере после запуска (Tailscale Funnel). Адрес localhost с телефона не работает.",
+  "apiUrl": "Адрес сервера",
+  "urlHint": "https://portway.example.ts.net",
+  "urlHelper": "Только HTTPS, без пути и параметров",
+  "urlRequired": "Введите адрес сервера",
+  "connect": "Подключить",
+  "loginTitle": "Вход",
+  "loginAt": "Войдите в «{installation}», чтобы управлять ИИ на компьютере.",
+  "@loginAt": {
+    "placeholders": {
+      "installation": {
+        "type": "String"
+      }
+    }
+  },
+  "email": "Email",
+  "password": "Пароль",
+  "name": "Имя",
+  "setupProof": "Код настройки",
+  "setupProofHelper": "Значение PORTWAY_SETUP_TOKEN из файла .env на компьютере",
+  "setupProofRequired": "Введите код настройки",
+  "login": "Войти",
+  "noAccount": "Нет аккаунта?",
+  "haveAccount": "Уже есть аккаунт?",
+  "createAccount": "Зарегистрироваться",
+  "register": "Зарегистрироваться",
+  "registrationTitle": "Регистрация владельца",
+  "registrationHint": "Владелец установки «{installation}» — её единственный пользователь. После регистрации подтвердите email.",
+  "@registrationHint": {
+    "placeholders": {
+      "installation": {
+        "type": "String"
+      }
+    }
+  },
+  "repeatPassword": "Повторите пароль",
+  "repeatRequired": "Введите пароль ещё раз",
+  "passwordMismatch": "Пароли не совпадают",
+  "ruleLength": "Не менее 8 символов",
+  "ruleMix": "Есть буква и цифра",
+  "nameRequired": "Введите имя",
+  "nameTooLong": "Не более 100 символов",
+  "emailRequired": "Введите email",
+  "invalidEmail": "Некорректный email. Пример: name@example.com",
+  "passwordRequired": "Введите пароль",
+  "shortPassword": "Пароль должен содержать не менее 8 символов",
+  "weakPassword": "Добавьте хотя бы одну букву и одну цифру",
+  "confirmationTitle": "Подтвердите email",
+  "confirmationHint": "Мы отправили письмо на {email}. Перейдите по ссылке из письма, затем войдите с тем же паролем.",
+  "@confirmationHint": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmationStepsTitle": "Ссылка откроет приложение",
+  "confirmationSteps": "Если письмо открыто на этом телефоне, Portway сам вернётся на экран входа. Проверьте папку «Спам», если письма нет.",
+  "editRegistration": "Изменить данные",
+  "returnLogin": "Перейти ко входу",
+  "change": "Сменить",
+  "changeInstallation": "Сменить установку",
+  "changeInstallationTitle": "Сменить установку?",
+  "changeConfirm": "Сессия на этом устройстве будет завершена. Для другой установки потребуется войти заново.",
+  "changeConfirmSignedOut": "Приложение забудет адрес этой установки. Затем укажите адрес другого компьютера.",
+  "cancel": "Отмена",
+  "continueAction": "Продолжить",
+  "showPassword": "Показать пароль",
+  "hidePassword": "Скрыть пароль",
+  "credentialsTitle": "Не удалось войти",
+  "credentialsError": "Неверный email или пароль. Проверьте данные и попробуйте снова.",
+  "sessionExpiredTitle": "Сессия завершена",
+  "sessionExpired": "Срок входа истёк. Войдите снова.",
+  "deviceRevokedTitle": "Доступ устройства отозван",
+  "deviceRevoked": "Это устройство отключено от установки. Войдите снова.",
+  "signedOut": "Вы вышли из аккаунта",
+  "signedOutHint": "Разделы приложения снова доступны только после входа.",
+  "logoutPending": "Выход выполнен на телефоне; сервер подтвердит отзыв доступа при следующем подключении.",
+  "registrationUnknownTitle": "Ответ на регистрацию не получен",
+  "registrationUnknown": "Проверьте почту. Повтор отправит тот же запрос и не создаст второй аккаунт.",
+  "retrySame": "Повторить тот же запрос",
+  "home": "Главная",
+  "tasks": "Задачи",
+  "aiAccounts": "Аккаунты ИИ",
+  "profile": "Профиль",
+  "loading": "Загрузка",
+  "retry": "Повторить",
+  "refresh": "Обновить",
+  "copy": "Копировать",
+  "copied": "Скопировано",
+  "open": "Открыть",
+  "done": "Готово",
+  "remove": "Удалить",
+  "manage": "Управление",
+  "details": "Подробности",
+  "code": "код",
+  "copyCode": "Скопировать код",
+  "copyAnswer": "Скопировать ответ",
+  "greeting": "{dayPart}, {name}",
+  "@greeting": {
+    "placeholders": {
+      "dayPart": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "morning": "Доброе утро",
+  "day": "Добрый день",
+  "evening": "Добрый вечер",
+  "night": "Доброй ночи",
+  "ownerFallback": "владелец",
+  "computer": "Компьютер",
+  "online": "На связи",
+  "offline": "Не в сети",
+  "statusUnknown": "Связь проверяется",
+  "statusChecking": "Запрашиваем состояние компьютера…",
+  "computerOnlineHint": "Проект «{workspace}» · только чтение",
+  "@computerOnlineHint": {
+    "placeholders": {
+      "workspace": {
+        "type": "String"
+      }
+    }
+  },
+  "computerLastSeen": "Был на связи {ago}",
+  "@computerLastSeen": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "computerNeverSeen": "Мост Portway на компьютере ещё не подключался",
+  "offlineHint": "Запустите мост Portway на компьютере — статус обновится автоматически.",
+  "newTask": "Новая задача",
+  "pendingTitle": "Проверить отправку",
+  "aiModels": "Модели ИИ",
+  "usageLoading": "Загружаем аккаунты и лимиты…",
+  "providersPending": "Компьютер передаст данные об аккаунтах и лимитах после обновления сервера и моста.",
+  "providersOffline": "Данные об аккаунтах ИИ появятся, когда компьютер выйдет на связь.",
+  "providersEmptyTitle": "Аккаунтов пока нет",
+  "recentTasks": "Последние задачи",
+  "allTasks": "Все задачи",
+  "noTasks": "Задач пока нет",
+  "noTasksHint": "Начните с вопроса о проекте — например, попросите объяснить его структуру.",
+  "available": "Доступен",
+  "notInstalled": "Не установлен",
+  "noLogin": "Нет входа",
+  "limitExhausted": "Лимит исчерпан",
+  "limitNear": "Лимит почти исчерпан",
+  "usageUnknown": "Лимиты неизвестны",
+  "noActiveAccount": "Нет активного аккаунта {service}",
+  "@noActiveAccount": {
+    "placeholders": {
+      "service": {
+        "type": "String"
+      }
+    }
+  },
+  "availableAgain": "Снова доступен: {time} · {relative}",
+  "@availableAgain": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "relative": {
+        "type": "String"
+      }
+    }
+  },
+  "usageChecked": "Лимиты проверены {ago}",
+  "@usageChecked": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "usageNotChecked": "Лимиты ещё не проверены",
+  "usageStale": "Последние известные данные · компьютер не в сети",
+  "forNewTasks": "Для новых задач",
+  "useForTasks": "Выбрать",
+  "limitTitle": "Лимит {provider} исчерпан",
+  "@limitTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "limitAccount": "Аккаунт {service}: {account}",
+  "@limitAccount": {
+    "placeholders": {
+      "service": {
+        "type": "String"
+      },
+      "account": {
+        "type": "String"
+      }
+    }
+  },
+  "limitNoReset": "Время сброса неизвестно. Смените аккаунт или выберите другой ИИ.",
+  "switchAccount": "Сменить аккаунт",
+  "switchTo": "Перейти на {provider}",
+  "@switchTo": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "windowFiveHour": "5 часов",
+  "windowWeekly": "Неделя",
+  "windowWeeklyModel": "Неделя · {model}",
+  "@windowWeeklyModel": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "usedPercent": "{percent} %",
+  "@usedPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "resetsAt": "Сброс: {time} · {relative}",
+  "@resetsAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "relative": {
+        "type": "String"
+      }
+    }
+  },
+  "taskTitle": "Задача",
+  "taskFrom": "Задача от {time}",
+  "@taskFrom": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "queued": "В очереди",
+  "running": "Выполняется",
+  "completed": "Готово",
+  "failed": "Ошибка",
+  "stopped": "Остановлена",
+  "unknownState": "Уточняется",
+  "executor": "Исполнитель",
+  "model": "Модель",
+  "defaultModel": "По умолчанию",
+  "chooseModel": "Модель {provider}",
+  "@chooseModel": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "effort": "Глубина рассуждений",
+  "effortLow": "Низкая",
+  "effortMedium": "Средняя",
+  "effortHigh": "Высокая",
+  "effortXhigh": "Очень высокая",
+  "effortMax": "Максимальная",
+  "codexDefault": "Codex · модель по умолчанию. Выбор ИИ и модели появится после обновления сервера.",
+  "workspaceHint": "Проект «{workspace}» на компьютере. Доступ только на чтение — файлы не изменяются.",
+  "@workspaceHint": {
+    "placeholders": {
+      "workspace": {
+        "type": "String"
+      }
+    }
+  },
+  "promptHint": "Опишите задачу…",
+  "promptRequired": "Введите текст задачи.",
+  "promptTooLong": "Слишком длинный текст: максимум 16 КБ.",
+  "send": "Отправить",
+  "suggestions": "Можно начать с",
+  "suggestion1": "Кратко объясни назначение проекта по README. Ничего не изменяй.",
+  "suggestion2": "Найди основные точки входа приложения и опиши их.",
+  "suggestion3": "Проверь README на устаревшие инструкции и перечисли их.",
+  "requestUnknown": "Сервер мог принять запрос, но ответ не дошёл. Повторите тот же запрос — вторая задача не создастся.",
+  "discardPending": "Проверено, отменить",
+  "requestExpired": "Срок безопасного повтора истёк. Проверьте историю задач перед новой отправкой.",
+  "blockNoServerTitle": "Нет связи с сервером",
+  "blockOfflineTitle": "Компьютер не в сети",
+  "blockOffline": "Отправка станет доступна, когда мост Portway на компьютере выйдет на связь.",
+  "blockNotInstalledTitle": "{provider} не установлен",
+  "@blockNotInstalledTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "blockNotInstalled": "Установите CLI на компьютер или выберите другой ИИ.",
+  "blockNoAccountTitle": "Нет аккаунта для {provider}",
+  "@blockNoAccountTitle": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "blockNoAccount": "Подключите аккаунт {service}, чтобы отправлять задачи.",
+  "@blockNoAccount": {
+    "placeholders": {
+      "service": {
+        "type": "String"
+      }
+    }
+  },
+  "connectAccount": "Подключить аккаунт",
+  "openTasks": "Открыть задачи",
+  "progressCount": "Ход выполнения · {count}",
+  "@progressCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "emptyEvents": "Событий нет",
+  "emptyEventsActive": "Компьютер принял задачу, события появятся здесь",
+  "eventStarted": "Начато",
+  "eventProgress": "Ход работы",
+  "eventCompleted": "Завершено",
+  "eventFailed": "Ошибка",
+  "eventStopped": "Остановлено",
+  "waitingResult": "Ответ появится здесь, как только ИИ закончит.",
+  "answerFrom": "Ответ · {provider}",
+  "@answerFrom": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "stop": "Остановить",
+  "stopTitle": "Остановить задачу?",
+  "stopHint": "Уже полученный ответ сохранится. Продолжить этот запуск будет нельзя.",
+  "stoppedTitle": "Задача остановлена",
+  "stoppedHint": "Остановка подтверждена сервером; процесс на компьютере завершится в течение нескольких секунд.",
+  "failedHint": "Можно отправить задачу заново после устранения причины.",
+  "runLimit": "Лимит ИИ исчерпан во время выполнения",
+  "runAuth": "Нужно заново войти в аккаунт ИИ на компьютере",
+  "runBridgeLost": "Связь с компьютером прервалась во время выполнения",
+  "runTimeout": "Превышено время выполнения (9 минут)",
+  "runFailedGeneric": "ИИ завершился с ошибкой",
+  "account": "Аккаунт",
+  "tokens": "Токены",
+  "tokensValue": "{input} на входе · {output} на выходе",
+  "@tokensValue": {
+    "placeholders": {
+      "input": {
+        "type": "String"
+      },
+      "output": {
+        "type": "String"
+      }
+    }
+  },
+  "duration": "Длительность",
+  "created": "Создана",
+  "workspace": "Проект",
+  "workspaceValue": "{workspace} · только чтение",
+  "@workspaceValue": {
+    "placeholders": {
+      "workspace": {
+        "type": "String"
+      }
+    }
+  },
+  "runId": "ID задачи",
+  "searchHint": "Поиск по задачам",
+  "clearSearch": "Очистить поиск",
+  "filterAll": "Все",
+  "filterActive": "Активные",
+  "filterCompleted": "Готовые",
+  "filterFailed": "С ошибкой",
+  "filterStopped": "Остановленные",
+  "allProviders": "Все ИИ",
+  "foundCount": "Найдено {found} из {total}",
+  "@foundCount": {
+    "placeholders": {
+      "found": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "totalCount": "Всего задач: {count}",
+  "@totalCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resetFilters": "Сбросить",
+  "nothingFound": "Ничего не найдено",
+  "nothingFoundHint": "Измените запрос или сбросьте фильтры.",
+  "aiAccountsHint": "Аккаунты ChatGPT и Claude, через которые компьютер запускает Codex и Claude Code.",
+  "accountsOfflineTitle": "Компьютер не в сети",
+  "accountsOfflineStale": "Показаны последние известные данные. Управление аккаунтами недоступно до подключения.",
+  "installed": "Установлен",
+  "installedVersion": "CLI {version}",
+  "@installedVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "providerService": "Аккаунт {service}",
+  "@providerService": {
+    "placeholders": {
+      "service": {
+        "type": "String"
+      }
+    }
+  },
+  "cliMissing": "Установите {provider} на компьютер, чтобы подключить аккаунт.",
+  "@cliMissing": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "noAccounts": "Аккаунты {service} ещё не подключены.",
+  "@noAccounts": {
+    "placeholders": {
+      "service": {
+        "type": "String"
+      }
+    }
+  },
+  "activeAccount": "Активный",
+  "systemAccount": "Системный",
+  "accountActions": "Действия с аккаунтом",
+  "makeActive": "Сделать активным",
+  "accountActivated": "Аккаунт выбран активным",
+  "accountRemoved": "Аккаунт удалён",
+  "removeAccountTitle": "Удалить аккаунт?",
+  "removeAccountHint": "Компьютер выйдет из аккаунта {account} для {provider} и удалит его профиль. История задач сохранится.",
+  "@removeAccountHint": {
+    "placeholders": {
+      "account": {
+        "type": "String"
+      },
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "connectAccountTitle": "Вход в {service}",
+  "@connectAccountTitle": {
+    "placeholders": {
+      "service": {
+        "type": "String"
+      }
+    }
+  },
+  "connectAccountHint": "Где удобнее войти? Пароль вводится только на странице сервиса.",
+  "methodPhone": "На этом телефоне",
+  "methodPhoneCodex": "Покажем код и откроем страницу входа ChatGPT в браузере телефона.",
+  "methodPhoneClaude": "Откроем страницу Claude в браузере телефона, затем вставьте полученный код.",
+  "methodComputer": "На компьютере",
+  "methodComputerHint": "Браузер откроется на компьютере, войдите там.",
+  "loginActiveTitle": "Предыдущий вход не завершён",
+  "loginActiveHint": "Отменить его и начать новый?",
+  "cancelPrevious": "Отменить предыдущий",
+  "loginInProgress": "Идёт вход в {provider}",
+  "@loginInProgress": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "loginInProgressHint": "Откройте, чтобы продолжить или отменить.",
+  "loginStarting": "Компьютер готовит вход…",
+  "loginStartingHint": "Обычно это занимает несколько секунд.",
+  "loginUrlPending": "Ждём ссылку на страницу входа.",
+  "deviceCodeTitle": "Код для входа",
+  "deviceCodeSteps": "1. Скопируйте код.\n2. Откройте страницу входа и войдите в ChatGPT.\n3. Введите код и подтвердите доступ.",
+  "claudeSteps": "1. Откройте страницу входа и войдите в Claude.\n2. Подтвердите доступ и скопируйте показанный код.\n3. Вставьте код ниже.",
+  "openLoginPage": "Открыть страницу входа",
+  "openFailed": "Не удалось открыть браузер",
+  "pasteCode": "Вставьте код со страницы Claude",
+  "sendCode": "Отправить код",
+  "codeInvalid": "Вставьте код целиком, без пробелов.",
+  "loginWaiting": "Ждём подтверждения",
+  "loginWaitingHint": "Экран обновится автоматически после входа.",
+  "loginOnComputer": "Войдите на компьютере",
+  "loginOnComputerHint": "На компьютере открылся браузер. Войдите в аккаунт {service} — этот экран обновится сам.",
+  "@loginOnComputerHint": {
+    "placeholders": {
+      "service": {
+        "type": "String"
+      }
+    }
+  },
+  "loginVerifying": "Проверяем вход…",
+  "loginVerifyingHint": "Компьютер сохраняет аккаунт.",
+  "loginCompleted": "Аккаунт подключён",
+  "loginCompletedHint": "Он выбран активным для новых задач.",
+  "loginFailed": "Вход не выполнен",
+  "loginExpired": "Время на вход истекло",
+  "loginCancelled": "Вход отменён",
+  "loginFailedHint": "Попробуйте ещё раз или выберите вход на компьютере.",
+  "loginExpires": "Вход нужно завершить до {time}",
+  "@loginExpires": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelLogin": "Отменить вход",
+  "deviceCodeUnavailable": "ChatGPT не разрешает вход по коду для этого аккаунта. Включите его в ChatGPT → Settings → Security или выберите «На компьютере».",
+  "codeRejected": "Код не принят. Начните вход заново и вставьте новый код.",
+  "cliMissingShort": "CLI не найден на компьютере.",
+  "loginTimeout": "Вход не завершён вовремя. Начните заново.",
+  "ownerRole": "Владелец установки",
+  "connection": "Подключение",
+  "installation": "Установка",
+  "deviceSessions": "Устройства",
+  "noDevices": "Нет данных об устройствах",
+  "unknownDevice": "Устройство",
+  "thisDevice": "Это устройство",
+  "deviceSeen": "Активность: {ago}",
+  "@deviceSeen": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "deviceNeverSeen": "Активности ещё не было",
+  "deviceRevokedLabel": "Доступ отозван",
+  "revoke": "Отозвать доступ",
+  "revokeTitle": "Отозвать доступ?",
+  "revokeHint": "Устройство «{device}» потеряет доступ и должно будет войти заново.",
+  "@revokeHint": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "theme": "Оформление",
+  "systemTheme": "Системная",
+  "lightTheme": "Светлая",
+  "darkTheme": "Тёмная",
+  "about": "О приложении",
+  "appVersion": "Версия",
+  "security": "Безопасность",
+  "securityValue": "Сессия в защищённом хранилище Android · ключи ИИ остаются на компьютере",
+  "logout": "Выйти",
+  "logoutTitle": "Выйти из аккаунта?",
+  "logoutHint": "Сессия на этом телефоне будет завершена. Чтобы снова открыть разделы, потребуется войти.",
+  "logoutFootnote": "Задачи и аккаунты ИИ на компьютере не удаляются.",
+  "ownerAlreadyBound": "Владелец уже зарегистрирован. Войдите с его email и паролем.",
+  "ownerRequired": "Этот аккаунт не совпадает с владельцем установки.",
+  "registrationUncertain": "Исход регистрации не подтверждён. Проверьте письмо перед повтором.",
+  "registrationConflict": "Регистрация уже начата. Подтвердите ранее указанный email и войдите.",
+  "rateLimited": "Слишком много попыток. Подождите минуту и повторите.",
+  "invalidUrl": "Нужен HTTPS-адрес без пути, параметров и localhost.",
+  "networkError": "Не удалось связаться с сервером. Проверьте интернет и доступность компьютера.",
+  "responseError": "Сервер вернул неподдерживаемый ответ.",
+  "storageError": "Не удалось открыть защищённое хранилище. Перезапустите приложение.",
+  "notConfirmed": "Сначала подтвердите email по ссылке из письма.",
+  "setupError": "Неверный код настройки.",
+  "errorOffline": "Компьютер не на связи. Запустите мост Portway на компьютере и повторите.",
+  "disabled": "Подключение ИИ на сервере ещё не настроено.",
+  "busyError": "Компьютер уже выполняет другую задачу. Дождитесь её завершения.",
+  "errorLimit": "Лимит выбранного ИИ исчерпан.",
+  "errorAccountRequired": "Для выбранного ИИ нет аккаунта с выполненным входом.",
+  "errorProviderUnavailable": "Выбранный ИИ не установлен на компьютере.",
+  "errorLoginActive": "Уже идёт другой вход в аккаунт.",
+  "errorAccountSystem": "Системный аккаунт компьютера нельзя удалить из приложения.",
+  "errorInvalidRequest": "Сервер не принял параметры запроса.",
+  "eventGap": "Часть событий пропущена. Потяните вниз, чтобы обновить.",
+  "notFound": "Не найдено. Возможно, сервер ещё не обновлён.",
+  "serverError": "Не удалось выполнить запрос. Попробуйте ещё раз.",
+  "errorLoginNotActive": "Этот вход уже завершён или отменён. Начните вход заново.",
+  "errorCommandsBusy": "Компьютер обрабатывает много команд. Повторите через минуту.",
+  "commandExpired": "Компьютер не забрал команду вовремя. Проверьте, что мост Portway запущен.",
+  "accountNotFound": "Аккаунт не найден на компьютере. Обновите список.",
+  "accountBusy": "Аккаунт занят выполняемой задачей. Дождитесь её завершения.",
+  "commandFailedGeneric": "Компьютер не выполнил команду. Попробуйте ещё раз."
+}
