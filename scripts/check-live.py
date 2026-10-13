@@ -36,6 +36,8 @@ opener = urllib.request.build_opener(NoRedirect())
 def http(url, headers=None):
     try:
         with opener.open(urllib.request.Request(url, headers=headers or {}), timeout=15) as response:
+            if response.headers.get_content_type() == 'text/html':
+                return response.status, {'confirmation_page': response.headers.get('Content-Security-Policy', '').startswith("default-src 'none'")}
             return response.status, json.loads(response.read(1 << 20))
     except urllib.error.HTTPError as error:
         return error.code, {}
@@ -87,14 +89,20 @@ report('business schemas closed to Supabase client roles', anonymous == 't')
 
 code, body = http(api['PORTWAY_AUTH_URL'] + '/settings', {'apikey': api['PORTWAY_AUTH_PUBLISHABLE_KEY']})
 report('Supabase Auth publishable key and email confirmation', code == 200 and body.get('external', {}).get('email') is True and body.get('mailer_autoconfirm') is False, 'HTTP ' + str(code))
+report('Supabase signup enabled', code == 200 and body.get('disable_signup') is False)
+code, body = http(api['PORTWAY_AUTH_URL'] + '/.well-known/jwks.json', {'apikey': api['PORTWAY_AUTH_PUBLISHABLE_KEY']})
+keys = body.get('keys', [])
+report('Supabase public signing keys compatible', code == 200 and all(k.get('alg') in ('RS256', 'ES256') for k in keys), 'asymmetric keys: ' + str(len(keys)) + '; legacy HS256 uses live Auth verification')
 port = services['api']['ports'][0]['published']
 endpoints = [] if '--private-only' in sys.argv else [('local API', 'http://127.0.0.1:' + str(port)), ('public API', api['PORTWAY_PUBLIC_URL'].rstrip('/'))]
 for label, base in endpoints:
-    for path, expected_status in [('/healthz', 200), ('/v1/client-config', 200), ('/v1/agents', 401), ('/v1/runs', 401), ('/v1/runs/30000000-0000-4000-8000-000000000001/events', 401), ('/auth/confirm', 400), ('/readyz', 503)]:
+    for path, expected_status in [('/healthz', 200), ('/v1/client-config', 200), ('/v1/agents', 401), ('/v1/runs', 401), ('/v1/runs/30000000-0000-4000-8000-000000000001/events', 401), ('/auth/confirm', 200), ('/readyz', 503)]:
         code, body = http(base + path)
         ok = code == expected_status
         if path == '/v1/client-config':
             ok = ok and body.get('data', {}).get('installation_id') == api['PORTWAY_INSTALLATION_ID']
+        if path == '/auth/confirm':
+            ok = ok and body.get('confirmation_page') is True
         report(label + ' ' + path, ok, 'HTTP ' + str(code))
         if code == 0:
             break

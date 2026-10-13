@@ -124,6 +124,24 @@ func (h HTTPServer) Handler() http.Handler {
 		}
 		isRun := parts[0] == "runs"
 		id := parts[1]
+		if len(parts) == 3 && parts[2] == "result" && isRun && r.Method == "GET" {
+			if r.URL.RawQuery != "" {
+				write(0, nil, problem.Invalid("Query parameters are not supported"))
+				return
+			}
+			c, err := h.Store.Lookup(ctx, a.OwnerID, id, true)
+			if err != nil {
+				write(0, nil, err)
+				return
+			}
+			run, _ := c.Find(id)
+			if run.Result == nil {
+				write(0, nil, problem.New(404, "RESULT_NOT_FOUND", "Run has no completed result"))
+				return
+			}
+			write(200, run.Result, nil)
+			return
+		}
 		if len(parts) == 3 && parts[2] == "stop" && r.Method == "POST" {
 			c, err := h.Store.Stop(ctx, a.OwnerID, id, r.Header.Get("Idempotency-Key"), isRun)
 			if err != nil {

@@ -26,10 +26,12 @@ Funnel работает отдельным Docker-узлом `portway`; конт
 
 Состояние узла хранится в named volume `tailscale-state`. Перезапуск сохраняет node ID и домен; вход при каждом запуске не нужен. Старый host Funnel пока сохранён для перехода и не используется новым `PORTWAY_PUBLIC_URL`. После изменения Supabase URL Configuration его можно отдельно отключить по инструкции Docker Funnel.
 
-Настройки URL Configuration и шаблон письма в Supabase Dashboard этим развёртыванием не изменялись. Проверка `/auth/confirm` без token_hash ожидаемо возвращает HTTP 400 и не заменяет регистрацию с настоящим письмом.
+Настройки URL Configuration и шаблон письма в Supabase Dashboard этим развёртыванием не изменялись. Начиная с OpenAPI 0.7.1 `/auth/confirm` без query возвращает безопасную HTML-инструкцию (200, no-store, CSP); страница удаляет upstream fragment из адресной строки и не использует его для авторизации. Она не подтверждает почту и не привязывает владельца сама по себе.
 
-Письмо должно вести непосредственно на Go `/auth/confirm` с token_hash. Стандартный шаблон `{{ .ConfirmationURL }}` не завершает привязку единственного владельца Portway. Callback проверяет OTP сервером и возвращает `portway://auth/confirmed` без JWT; затем требуется login.
+Рекомендуемый шаблон ведёт непосредственно на Go `/auth/confirm` с token_hash. Callback проверяет OTP сервером и возвращает `portway://auth/confirmed` без JWT; затем требуется login. Стандартный шаблон `{{ .ConfirmationURL }}` также поддержан: после upstream email verification обычный password login проверяет JWT и live `/user`, confirmed timestamp, точные subject/email исходного setup-protected intent и атомарно завершает bind. Чужой, неподтверждённый или не зарезервированный аккаунт не получает доступа; setup proof после claim уничтожается. Если Site URL ещё остался localhost, после подтверждения письма можно вручную вернуться в Portway; настройте URL выше для корректной страницы возврата.
 
 Реальная отправка письма выполняется владельцем при регистрации; автоматические проверки Auth settings/JWKS не рассылают письма.
 
 [Шаблоны Supabase](https://supabase.com/docs/guides/auth/auth-email-templates).
+
+Встроенный SMTP Supabase отправляет только участникам организации и имеет небольшую квоту; для первого показа используйте email вашего Supabase-аккаунта. Произвольные адреса требуют собственного SMTP. Read-only `/settings` подтверждает enable signup/email confirmation, но не подтверждает доставку конкретного письма или настройки шаблона: [ограничения SMTP](https://supabase.com/docs/guides/auth/auth-smtp).

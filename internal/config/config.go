@@ -11,13 +11,18 @@ import (
 	"strconv"
 	"strings"
 
+	"portway/internal/openrouter"
 	"portway/internal/secure"
+	"unicode"
 )
 
 type Config struct {
 	Environment, HTTPAddr, InstallationID, InstallationName string
 	DatabaseURL, MigrationURL, AuthURL, AuthKey, PublicURL  string
 	ExecutionURL, ExecutionKey                              string
+	OpenRouterKey, OpenRouterModel                          string
+	CodexBridgeKey                                          string
+	FreeModelsOnly                                          bool
 	SetupHash                                               string
 	MasterKey                                               []byte
 	AllowedEndpoints                                        []string
@@ -130,6 +135,13 @@ func Load() (Config, error) {
 			return c, errors.New("production database requires sslmode=verify-full")
 		}
 	}
+	c.CodexBridgeKey, err = Secret("PORTWAY_CODEX_BRIDGE_KEY", false)
+	if err != nil {
+		return c, err
+	}
+	if c.CodexBridgeKey != "" && (len(c.CodexBridgeKey) < 32 || len(c.CodexBridgeKey) > 128 || strings.IndexFunc(c.CodexBridgeKey, unicode.IsSpace) >= 0) {
+		return c, errors.New("invalid PORTWAY_CODEX_BRIDGE_KEY")
+	}
 	c.ExecutionURL = os.Getenv("PORTWAY_EXECUTION_URL")
 	c.ExecutionKey, err = Secret("PORTWAY_EXECUTION_SERVICE_KEY", false)
 	if err != nil {
@@ -165,6 +177,31 @@ func Load() (Config, error) {
 			return c, errors.New("invalid allowlisted model endpoint")
 		}
 		c.AllowedEndpoints = append(c.AllowedEndpoints, e)
+	}
+	policy := os.Getenv("PORTWAY_MODEL_POLICY")
+	if policy != "" && policy != "free_only" {
+		return c, errors.New("PORTWAY_MODEL_POLICY must be free_only")
+	}
+	c.FreeModelsOnly = true
+	c.OpenRouterKey, err = Secret("OPENROUTER_API_KEY", false)
+	if err != nil {
+		return c, err
+	}
+	if len(c.OpenRouterKey) > 8192 || strings.IndexFunc(c.OpenRouterKey, unicode.IsControl) >= 0 {
+		return c, errors.New("invalid OPENROUTER_API_KEY")
+	}
+	c.OpenRouterModel = strings.TrimSpace(os.Getenv("PORTWAY_OPENROUTER_MODEL"))
+	if c.OpenRouterModel != "" && !openrouter.FreeID(c.OpenRouterModel) {
+		return c, errors.New("PORTWAY_OPENROUTER_MODEL must be an explicit :free model")
+	}
+	if c.OpenRouterKey != "" {
+		found := false
+		for _, endpoint := range c.AllowedEndpoints {
+			found = found || endpoint == openrouter.Endpoint
+		}
+		if !found {
+			c.AllowedEndpoints = append(c.AllowedEndpoints, openrouter.Endpoint)
+		}
 	}
 	return c, nil
 }

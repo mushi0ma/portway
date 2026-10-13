@@ -36,7 +36,7 @@ type Event struct {
 func (e Event) Key() string { return e.InstallationID + "/" + e.AggregateID }
 
 func (e Event) Validate(now time.Time) error {
-	types := map[string]string{"owner.bound": "owner", "device.login": "device", "device.revoked": "device", "agent.created": "agent", "agent.version_created": "agent_version", "provider.created": "provider", "provider.updated": "provider", "secret.created": "secret"}
+	types := map[string]string{"owner.bound": "owner", "device.login": "device", "device.revoked": "device", "agent.created": "agent", "agent.version_created": "agent_version", "provider.created": "provider", "provider.updated": "provider", "provider.check_started": "provider", "provider.check_completed": "provider", "secret.created": "secret", "codex.queued": "codex_run", "codex.stopped": "codex_run", "codex.completed": "codex_run", "codex.failed": "codex_run", "codex.command_queued": "codex_command"}
 	if e.SchemaVersion != 1 || e.Producer != "control-api" || e.Type != "audit.recorded" ||
 		!secure.UUID(e.EventID) || !secure.UUID(e.InstallationID) || !secure.UUID(e.AggregateID) || !secure.UUID(e.CorrelationID) ||
 		e.Payload.ActorID == nil || !secure.UUID(*e.Payload.ActorID) || e.Payload.ObjectID == nil || !secure.UUID(*e.Payload.ObjectID) ||

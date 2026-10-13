@@ -16,3 +16,6 @@ docs/diagrams
 
 __pycache__
 *.pyc
+
+# Flutter client, SDK/cache and Android build outputs are outside Go images.
+apps

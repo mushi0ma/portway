@@ -100,3 +100,39 @@ func TestEnvironmentConfigAndSmallPool(t *testing.T) {
 		t.Fatal("secret API key must be rejected without logging")
 	}
 }
+
+func TestFreeModelEnvironmentPolicy(t *testing.T) {
+	for _, name := range []string{"PORTWAY_DATABASE_URL_FILE", "PORTWAY_MIGRATION_DATABASE_URL_FILE", "PORTWAY_MASTER_KEY_FILE", "PORTWAY_SETUP_TOKEN_FILE", "PORTWAY_MIGRATION_DATABASE_URL", "OPENROUTER_API_KEY_FILE", "PORTWAY_MODEL_POLICY", "PORTWAY_OPENROUTER_MODEL", "PORTWAY_LLM_ALLOWED_ENDPOINTS", "PORTWAY_EXECUTION_URL", "PORTWAY_EXECUTION_SERVICE_KEY", "PORTWAY_DATABASE_MAX_CONNS"} {
+		t.Setenv(name, "")
+	}
+	t.Setenv("PORTWAY_ENV", "production")
+	t.Setenv("PORTWAY_INSTALLATION_ID", secure.ID())
+	t.Setenv("PORTWAY_AUTH_URL", "https://project.supabase.co/auth/v1")
+	t.Setenv("PORTWAY_PUBLIC_URL", "https://localhost")
+	t.Setenv("PORTWAY_AUTH_PUBLISHABLE_KEY", "sb_publishable_test")
+	t.Setenv("PORTWAY_DATABASE_URL", "postgres://portway_app:marker@db.example/postgres?sslmode=verify-full")
+	t.Setenv("PORTWAY_MASTER_KEY", base64.StdEncoding.EncodeToString(make([]byte, 32)))
+	t.Setenv("PORTWAY_SETUP_TOKEN", secure.Token())
+	t.Setenv("OPENROUTER_API_KEY", "private-model-key-marker")
+	c, err := Load()
+	if err != nil || !c.FreeModelsOnly || c.OpenRouterKey == "" || len(c.AllowedEndpoints) != 1 || c.AllowedEndpoints[0] != "https://openrouter.ai/api/v1" {
+		t.Fatal("model connection not configured", err)
+	}
+	t.Setenv("PORTWAY_MODEL_POLICY", "paid")
+	if _, err = Load(); err == nil {
+		t.Fatal("paid policy enabled")
+	}
+	t.Setenv("PORTWAY_MODEL_POLICY", "free_only")
+	t.Setenv("PORTWAY_OPENROUTER_MODEL", "vendor/paid")
+	if _, err = Load(); err == nil {
+		t.Fatal("paid model accepted")
+	}
+	t.Setenv("PORTWAY_OPENROUTER_MODEL", "vendor/model:free")
+	if _, err = Load(); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("OPENROUTER_API_KEY", "private-model-key-marker\nunsafe")
+	if _, err = Load(); err == nil || strings.Contains(err.Error(), "marker") {
+		t.Fatal("invalid key accepted or disclosed")
+	}
+}

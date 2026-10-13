@@ -47,8 +47,14 @@ func run() error {
 		}
 		return nil
 	}
+	if mode == "codex-bridge" {
+		return codexCommand()
+	}
+	if mode == "models" || mode == "model-probe" {
+		return modelCommand(mode)
+	}
 	if mode != "api" && mode != "migrate" && mode != "check" {
-		return errors.New("usage: portway [api|migrate|check|probe|version]")
+		return errors.New("usage: portway [api|migrate|check|probe|version|models|model-probe MODEL_ID|codex-bridge]")
 	}
 	c, err := config.Load()
 	if err != nil {

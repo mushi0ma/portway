@@ -156,18 +156,69 @@ func TestKafkaAuditDelivery(t *testing.T) {
 	if err = audit.Apply(ctx, corrupted); err == nil {
 		t.Fatal("conflicting duplicate accepted")
 	}
+	// Capability checks use the same outbox contract. Verify their new action
+	// codes traverse the actual relay/broker/consumer rather than blocking it.
+	tx, err = app.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := secure.ID()
+	actions := []string{"provider.check_started", "provider.check_completed", "codex.queued", "codex.stopped", "codex.completed", "codex.failed", "codex.command_queued"}
+	for _, action := range actions {
+		kind := "provider"
+		if strings.HasPrefix(action, "codex.") {
+			kind = "codex_run"
+		}
+		if action == "codex.command_queued" {
+			kind = "codex_command"
+		}
+		if err = app.Audit(ctx, tx, actor, action, kind, provider); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < len(actions); i++ {
+		if done, err := relay.RelayOne(ctx, publish); err != nil || !done {
+			t.Fatal("provider check audit relay", done, err)
+		}
+	}
 	// Actual consumer restart: committed offsets mean no previously handled records.
 	consumer, err = events.Consumer(strings.Split(brokers, ","), id)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer consumer.Close()
-	idle, done := context.WithTimeout(ctx, 5*time.Second)
-	err = events.ConsumeOne(idle, consumer, audit)
-	done()
-	if !errors.Is(err, events.ErrIdle) {
-		t.Fatal("consumer replayed committed offset", err)
+	for i := 0; i < len(actions); i++ {
+		if err = events.ConsumeOne(ctx, consumer, audit); err != nil {
+			t.Fatal("provider check audit consume", err)
+		}
 	}
+	if err = root.Pool.QueryRow(ctx, `SELECT count(*) FROM portway_audit.entries WHERE installation_id=$1 AND action IN ('provider.check_started','provider.check_completed') AND object_type='provider' AND object_id=$2`, id, provider).Scan(&count); err != nil || count != 2 {
+		t.Fatal("provider check audit not projected", count, err)
+	}
+	if err = root.Pool.QueryRow(ctx, `SELECT count(*) FROM portway_audit.entries WHERE installation_id=$1 AND action LIKE 'codex.%' AND object_type='codex_run' AND object_id=$2`, id, provider).Scan(&count); err != nil || count != 4 {
+		t.Fatal("codex audit not projected", count, err)
+	}
+	if err = root.Pool.QueryRow(ctx, `SELECT count(*) FROM portway_audit.entries WHERE installation_id=$1 AND action='codex.command_queued' AND object_type='codex_command' AND object_id=$2`, id, provider).Scan(&count); err != nil || count != 1 {
+		t.Fatal("codex command audit not projected", count, err)
+	}
+	idle, done := context.WithTimeout(ctx, 5*time.Second)
+	// A group rebalance can yield an empty poll before the deadline. Inspect
+	// raw records so an empty poll is not mistaken for a replay (and receipt
+	// deduplication cannot hide a genuinely replayed committed record).
+	for idle.Err() == nil {
+		fetch := consumer.PollRecords(idle, 1)
+		consumer.AllowRebalance()
+		if fetch.NumRecords() != 0 {
+			t.Fatal("consumer replayed committed offset")
+		}
+		if len(fetch.Errors()) != 0 && idle.Err() == nil {
+			t.Fatal("Kafka idle poll failed")
+		}
+	}
+	done()
 	if err = relay.Prune(ctx, "relay"); err != nil {
 		t.Fatal(err)
 	}

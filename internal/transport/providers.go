@@ -1,15 +1,20 @@
 package transport
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"portway/internal/agents"
 	"portway/internal/identity"
+	"portway/internal/modelgateway"
+	"portway/internal/openrouter"
 	"portway/internal/problem"
+	"portway/internal/providercheck"
 	"portway/internal/secure"
 )
 
@@ -20,9 +25,30 @@ type providerInput struct {
 	SecretRef *string `json:"secret_ref"`
 }
 
+func (s *Server) checkProvider(w http.ResponseWriter, r *http.Request, p identity.Principal) (int, any, error) {
+	var in struct {
+		Profile string `json:"profile"`
+	}
+	if err := Decode(w, r, &in); err != nil {
+		return 0, nil, err
+	}
+	if in.Profile != modelgateway.ProbeProfile {
+		return 0, nil, problem.Invalid("Unsupported capability check profile")
+	}
+	version, err := expected(r)
+	if err != nil {
+		return 0, nil, err
+	}
+	svc := providercheck.Service{Store: s.Store, Vault: s.Vault, AllowedEndpoints: s.Config.AllowedEndpoints, RequestHashKey: s.Config.MasterKey, FreeModelsOnly: s.Config.FreeModelsOnly}
+	return svc.Check(r.Context(), p.OwnerID, p.DeviceID, r.PathValue("id"), version, r.Header.Get("Idempotency-Key"))
+}
+
 func (s *Server) validateProvider(in *providerInput) error {
 	in.Label = strings.TrimSpace(in.Label)
 	in.Endpoint = strings.TrimRight(in.Endpoint, "/")
+	if s.Config.FreeModelsOnly && (in.Endpoint != openrouter.Endpoint || !openrouter.FreeID(in.ModelID)) {
+		return problem.New(403, "FREE_MODEL_REQUIRED", "Only explicit OpenRouter :free models are enabled")
+	}
 	if in.Label == "" || len(in.Label) > 120 || strings.TrimSpace(in.ModelID) == "" || len(in.ModelID) > 256 || in.SecretRef != nil && !secure.UUID(*in.SecretRef) {
 		return problem.Invalid("Invalid provider configuration")
 	}
@@ -34,7 +60,7 @@ func (s *Server) validateProvider(in *providerInput) error {
 	return problem.New(403, "POLICY_DENIED", "Model endpoint is not allowlisted")
 }
 func (s *Server) providers(w http.ResponseWriter, r *http.Request, p identity.Principal) (int, any, error) {
-	rows, err := s.Store.Pool.Query(r.Context(), `SELECT jsonb_build_object('id',id,'label',label,'endpoint',endpoint,'model_id',model_id,'secret_ref',secret_ref,'config_version',config_version,'capabilities',capabilities,'checked_at',checked_at) FROM portway.providers WHERE installation_id=$1 ORDER BY id`, s.Store.Installation)
+	rows, err := s.Store.Pool.Query(r.Context(), `SELECT jsonb_build_object('id',id,'label',label,'endpoint',endpoint,'model_id',model_id,'secret_ref',secret_ref,'config_version',config_version,'capabilities',capabilities,'checked_at',checked_at),clock_timestamp() FROM portway.providers WHERE installation_id=$1 ORDER BY id`, s.Store.Installation)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -42,9 +68,14 @@ func (s *Server) providers(w http.ResponseWriter, r *http.Request, p identity.Pr
 	items := []map[string]any{}
 	for rows.Next() {
 		var v map[string]any
-		if err = rows.Scan(&v); err != nil {
+		var now time.Time
+		if err = rows.Scan(&v, &now); err != nil {
 			return 0, nil, err
 		}
+		var report providercheck.Report
+		raw, _ := json.Marshal(v["capabilities"])
+		_ = json.Unmarshal(raw, &report)
+		v["protocol_valid"] = report.ProtocolValid(v["id"].(string), v["endpoint"].(string), v["model_id"].(string), int(v["config_version"].(float64)), s.Config.AllowedEndpoints, now)
 		items = append(items, v)
 	}
 	return 200, map[string]any{"items": items}, rows.Err()

@@ -41,3 +41,24 @@ func TestContract(t *testing.T) {
 		}
 	}
 }
+
+func TestProviderCheckAuditContract(t *testing.T) {
+	for _, action := range []string{"provider.check_started", "provider.check_completed", "codex.queued", "codex.stopped", "codex.completed", "codex.failed", "codex.command_queued"} {
+		e := example()
+		e.Payload.Action, e.Payload.ObjectType = action, "provider"
+		if strings.HasPrefix(action, "codex.") {
+			e.Payload.ObjectType = "codex_run"
+		}
+		if action == "codex.command_queued" {
+			e.Payload.ObjectType = "codex_command"
+		}
+		b, _ := json.Marshal(e)
+		if _, err := Decode(b, e.InstallationID, time.Now()); err != nil {
+			t.Fatal("provider check would block the relay", action, err)
+		}
+		e.Payload.ObjectType = "secret"
+		if e.Validate(time.Now()) == nil {
+			t.Fatal("wrong audit object accepted")
+		}
+	}
+}

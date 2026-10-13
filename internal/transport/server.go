@@ -15,22 +15,26 @@ import (
 	"portway/internal/agents"
 	"portway/internal/config"
 	"portway/internal/identity"
+	"portway/internal/modelgateway"
+	"portway/internal/openrouter"
 	"portway/internal/problem"
 	"portway/internal/secure"
 	"portway/internal/storage"
 )
 
 type Server struct {
-	Config     config.Config
-	Store      *storage.Store
-	Identity   *identity.Service
-	Agents     *agents.Service
-	Log        *slog.Logger
-	Vault      *secure.Vault
-	authMu     sync.Mutex
-	authWindow time.Time
-	authCount  int
-	streams    atomic.Int32
+	Config       config.Config
+	Store        *storage.Store
+	Identity     *identity.Service
+	Agents       *agents.Service
+	Log          *slog.Logger
+	Vault        *secure.Vault
+	FreeModels   func(context.Context) ([]openrouter.Model, error)
+	TokenCounter modelgateway.TokenCounter
+	authMu       sync.Mutex
+	authWindow   time.Time
+	authCount    int
+	streams      atomic.Int32
 }
 type requestKey struct{}
 type handler func(http.ResponseWriter, *http.Request, identity.Principal) (int, any, error)
@@ -39,7 +43,11 @@ func New(c config.Config, store *storage.Store, log *slog.Logger) *Server {
 	v, _ := secure.NewVault(c.MasterKey)
 	auth := identity.NewSupabase(c.AuthURL, c.AuthKey)
 	auth.ConfirmationURL = c.PublicURL + "/auth/confirm"
-	return &Server{Config: c, Store: store, Identity: &identity.Service{Store: store, Auth: auth, RequestHashKey: c.MasterKey}, Agents: &agents.Service{Store: store}, Log: log, Vault: v}
+	return &Server{Config: c, Store: store, Identity: &identity.Service{Store: store, Auth: auth, RequestHashKey: c.MasterKey}, Agents: &agents.Service{Store: store}, Log: log, Vault: v, FreeModels: func(ctx context.Context) ([]openrouter.Model, error) {
+		catalog := openrouter.New()
+		defer catalog.Close()
+		return catalog.Models(ctx)
+	}}
 }
 func (s *Server) Handler() http.Handler {
 	m := http.NewServeMux()
@@ -76,15 +84,21 @@ func (s *Server) Handler() http.Handler {
 		v, e := s.Agents.GetVersion(r.Context(), r.PathValue("id"))
 		return 200, v, e
 	})
+	s.route(m, "GET /v1/models", true, s.freeModels)
+	s.route(m, "POST /v1/providers/openrouter", true, s.connectOpenRouter)
 	s.route(m, "GET /v1/providers", true, s.providers)
 	s.route(m, "POST /v1/providers", true, s.createProvider)
 	s.route(m, "PUT /v1/providers/{id}", true, s.updateProvider)
+	s.route(m, "POST /v1/providers/{id}/capability-check", true, s.checkProvider)
 	s.route(m, "GET /v1/secret-refs", true, s.secrets)
 	s.route(m, "POST /v1/secret-refs", true, s.createSecret)
 	s.route(m, "GET /internal/v1/execution/authorize", true, s.executionAuthorize)
+	s.route(m, "POST /internal/v1/model-gateway/count", true, s.modelCount)
+	s.route(m, "POST /internal/v1/model-gateway/complete", true, s.modelComplete)
 	s.route(m, "POST /v1/runs", true, s.executionProxy)
 	s.route(m, "GET /v1/runs", true, s.executionProxy)
 	s.route(m, "GET /v1/runs/{id}", true, s.executionProxy)
+	s.route(m, "GET /v1/runs/{id}/result", true, s.executionProxy)
 	s.route(m, "GET /v1/runs/{id}/events", true, s.executionEvents)
 	s.route(m, "POST /v1/runs/{id}/stop", true, s.executionProxy)
 	s.route(m, "GET /v1/chains/{id}", true, s.executionProxy)
@@ -92,11 +106,30 @@ func (s *Server) Handler() http.Handler {
 	s.route(m, "GET /v1/approvals", true, s.executionProxy)
 	s.route(m, "GET /v1/approvals/{id}", true, s.executionProxy)
 	s.route(m, "POST /v1/approvals/{id}/decision", true, s.executionProxy)
+	s.route(m, "GET /v1/codex/status", true, s.codexStatus)
+	s.route(m, "POST /v1/codex/runs", true, s.codexCreate)
+	s.route(m, "GET /v1/codex/runs", true, s.codexList)
+	s.route(m, "GET /v1/codex/runs/{id}", true, s.codexGet)
+	s.route(m, "GET /v1/codex/runs/{id}/events", true, s.codexEvents)
+	s.route(m, "POST /v1/codex/runs/{id}/stop", true, s.codexStop)
+	s.route(m, "POST /v1/codex/accounts/login", true, s.codexLogin)
+	s.route(m, "POST /v1/codex/accounts/login/{login_id}/code", true, s.codexLoginCode)
+	s.route(m, "POST /v1/codex/accounts/login/{login_id}/cancel", true, s.codexLoginCancel)
+	s.route(m, "POST /v1/codex/accounts/{account_id}/activate", true, s.codexActivate)
+	s.route(m, "DELETE /v1/codex/accounts/{account_id}", true, s.codexRemoveAccount)
+	s.route(m, "POST /v1/codex/usage/refresh", true, s.codexUsageRefresh)
+	s.route(m, "POST /internal/v1/codex/poll", false, s.codexPoll)
+	s.route(m, "POST /internal/v1/codex/state", false, s.codexState)
+	s.route(m, "POST /internal/v1/codex/commands/{id}/ack", false, s.codexAck)
+	s.route(m, "POST /internal/v1/codex/report", false, s.codexReport)
 	s.route(m, "GET /v1/status", true, s.status)
 	s.route(m, "GET /v1/audit", true, s.audit)
 	m.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { s.respond(w, r, 0, nil, problem.NotFound()) })
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		timeout := 20 * time.Second
+		if r.URL.Path == "/internal/v1/model-gateway/complete" {
+			timeout = 125 * time.Second
+		}
 		if isEventStream(r) {
 			timeout = 30 * time.Minute
 		}

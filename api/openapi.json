@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Portway backend — foundation",
-    "version": "0.4.0",
-    "description": "Control API with execution state, durable SSE replay and bounded seven-day execution history retention. Run admission intentionally returns 503 until Runtime, capabilities and dispatch fencing are implemented. Execution read/stop/events routes require the execution profile. Approval read/decision, server expiry and stop invalidation are implemented. Model/tool dispatch, Runtime grants, MCP, FCM and packages remain unimplemented. Full readyz stays 503."
+    "version": "0.8.0",
+    "description": "Control API with execution state, durable SSE replay and bounded seven-day execution history retention. Run admission intentionally returns 503 until Runtime, capabilities and dispatch fencing are implemented. Execution read/stop/events routes require the execution profile. Approval read/decision, server expiry and stop invalidation are implemented. Model/tool dispatch, Runtime grants, MCP, FCM and packages remain unimplemented. Full readyz stays 503. Internal Harness turn processing and durable final results are implemented with trusted gateway/runtime adapter boundaries. Production model and Runtime adapters are not connected; run admission remains closed. Owner-triggered bounded provider protocol checks persist expiring configuration-bound reports. They do not authorize run admission or attest prompt token bounds. Free-only OpenRouter provisioning/catalog and private counted/reserved model dispatch RPC are implemented. Verified TokenCounter and Runtime remain required before public agent runs. Optional native Codex demo profile provides authenticated prompt, encrypted history, cursor polling and stop through a separately authenticated outbound laptop bridge using existing ChatGPT CLI auth and read-only sandbox. It does not open generic run admission or replace the target Runtime/approval/reviewer pipeline. Agent Bridge v2 (0.8.0): the same opt-in laptop bridge serves Codex CLI and Claude Code; the phone selects provider/model/effort, sees an encrypted bridge snapshot with accounts, models and usage limits (explicit exhausted state, 429 AI_LIMIT_EXHAUSTED preflight) and connects/switches AI accounts through one-time bridge commands that drive the official CLI OAuth flows. Legacy fields and the first-slice bridge stay compatible."
   },
   "servers": [
     {
@@ -675,28 +675,41 @@
                 }
               }
             }
+          },
+          "200": {
+            "description": "No-query HTML instructions; no authentication or owner claim.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "parameters": [
           {
             "name": "type",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "const": "email"
-            }
+            },
+            "description": "Required together with the other confirmation parameter; both absent displays the landing page."
           },
           {
             "name": "token_hash",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string",
               "minLength": 16,
               "maxLength": 512
-            }
+            },
+            "description": "Required together with the other confirmation parameter; both absent displays the landing page."
           }
-        ]
+        ],
+        "description": "With token_hash and type=email, verify the OTP and bind the reserved owner. With no query, show a no-store landing page only; discard any upstream fragment locally. A subsequent password login verifies the confirmed Supabase user and can atomically bind the matching reserved subject and email."
       }
     },
     "/v1/auth/login": {
@@ -846,7 +859,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Verify password, JWT and live confirmed Supabase user. If setup is pending, atomically bind only the subject and email recorded by the original setup-protected registration. Return a new device-bound session."
       }
     },
     "/v1/auth/refresh": {
@@ -2643,7 +2657,7 @@
     "/v1/providers": {
       "get": {
         "operationId": "GET__v1_providers",
-        "summary": "List configured providers; no capability probe yet",
+        "summary": "List providers and current capability reports without secret values",
         "security": [
           {
             "bearerAuth": [],
@@ -3893,7 +3907,7 @@
       },
       "post": {
         "operationId": "POST__v1_runs",
-        "summary": "Admission closed: Runtime and provider capability checks are not implemented",
+        "summary": "Admission closed: Runtime, verified token bounds and dispatch authorization are incomplete",
         "security": [
           {
             "bearerAuth": [],
@@ -4835,7 +4849,7 @@
       "get": {
         "operationId": "GET__v1_runs_id_events",
         "summary": "Replay durable run events and continue with live SSE",
-        "description": "Authenticate with Authorization and X-Device-Session headers only. Use either Last-Event-ID or cursor, never both; omitted cursor starts at 0. SSE id is run UUID:seq, event is RunEvent.type, data is RunEvent JSON. Supports run.created/run.state_changed and approval_requested/approval.resolved. Comment heartbeats have no id. Each page rechecks live authorization; failure closes the stream, and reconnect returns an HTTP error. Expired history is rejected before 200. Bounded polling interval 1 second, heartbeat 10 seconds, stream lifetime 30 minutes, four streams per API process. Does not create runs or expose task/instructions.",
+        "description": "Authenticate with Authorization and X-Device-Session headers only. Use either Last-Event-ID or cursor, never both; omitted cursor starts at 0. SSE id is run UUID:seq, event is RunEvent.type, data is RunEvent JSON. Supports run.created/run.state_changed approval_requested/approval.resolved, run.completed and tool_result. Payloads contain references and safe metadata, not model answers or tool output. Comment heartbeats have no id. Each page rechecks live authorization; failure closes the stream, and reconnect returns an HTTP error. Expired history is rejected before 200. Bounded polling interval 1 second, heartbeat 10 seconds, stream lifetime 30 minutes, four streams per API process. Does not create runs or expose task/instructions.",
         "security": [
           {
             "bearerAuth": [],
@@ -5407,6 +5421,3086 @@
           }
         }
       }
+    },
+    "/v1/runs/{id}/result": {
+      "get": {
+        "operationId": "GET__v1_runs_id_result",
+        "summary": "Read the durable final model answer for this run",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ExecutionResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "description": "Owner/device guarded. 404 RESULT_NOT_FOUND when no final result exists. Source revision is pinned; result revision, diff, artifacts and reviewer verdict are not yet materialized. No model text is treated as evidence of workspace changes."
+      }
+    },
+    "/v1/providers/{id}/capability-check": {
+      "post": {
+        "operationId": "POST__v1_providers_id_capability_check",
+        "summary": "Check bounded Chat Completions wire compatibility for the current provider version",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Durable acknowledgement; current report is available through status_url. The first call settles synchronously within its deadline; concurrent replays can return while it is still checking.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ProviderCheckAccepted"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Current integer version; quoted ETag value also accepted."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "profile": {
+                    "type": "string",
+                    "const": "chat-completions-v1"
+                  }
+                },
+                "required": [
+                  "profile"
+                ]
+              }
+            }
+          }
+        },
+        "description": "Explicit owner action. At most two model generations with fixed nonsecret prompts, max_tokens=128 each and a 12-second total model timeout (15-second attempt deadline). No tool command is executed. The 202 acknowledgement and check_id are committed before I/O; replaying the same key never repeats model I/O, even after an interrupted attempt. Read capabilities and protocol_valid through GET /v1/providers. PUT invalidates the report; successful reports expire after 30 minutes. Errors are safe codes within the report. This check does not establish tokenizer bounds or Runtime readiness. Current configuration/device are checked before each request; final publication uses version/check_id CAS. A new key after an expired attempt explicitly requests a fresh probe."
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "operationId": "GET__v1_models",
+        "summary": "List current explicit zero-priced OpenRouter text models",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/FreeModel"
+                          }
+                        },
+                        "endpoint": {
+                          "type": "string",
+                          "const": "https://openrouter.ai/api/v1"
+                        },
+                        "policy": {
+                          "type": "string",
+                          "const": "free_only"
+                        },
+                        "checked_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "items",
+                        "endpoint",
+                        "policy",
+                        "checked_at"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Metadata GET only. No generation, credentials, model router or paid models. Availability/tool behavior still requires a real probe."
+      }
+    },
+    "/v1/providers/openrouter": {
+      "post": {
+        "operationId": "POST__v1_providers_openrouter",
+        "summary": "Create an encrypted provider connection using the control API OPENROUTER_API_KEY",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "config_version": {
+                          "type": "integer"
+                        },
+                        "capabilities": {
+                          "type": "object"
+                        },
+                        "checked_at": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "config_version",
+                        "capabilities",
+                        "checked_at"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "model_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "model_id"
+                ]
+              }
+            }
+          }
+        },
+        "description": "Owner/device and Idempotency-Key required. The selected explicit :free model must have current zero pricing. Key is read only from control environment, encrypted with AAD, never returned. Replay creates no additional secret/provider; a changed environment key does not silently rotate existing providers. This operation does not generate or authorize a run."
+      }
+    },
+    "/internal/v1/model-gateway/count": {
+      "post": {
+        "operationId": "POST__internal_v1_model_gateway_count",
+        "summary": "Private model gateway count",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": [],
+            "executionServiceKey": []
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GatewayCountReceipt"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Gateway/tokenizer/model unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "run_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "run_id"
+                ]
+              }
+            }
+          }
+        },
+        "description": "Service auth AND live owner/device credentials required. Reads current execution state over authenticated HTTP; no cross-service SQL. Checks agent/provider/version/report/epoch/deadline. Count uses a verified full-prompt TokenCounter, absent by default (TOKEN_COUNT_UNAVAILABLE); it never generates. Complete matches the counted body/reservation and durably claims the step before I/O. Replays use an encrypted cached reply; uncertain attempts are never retried. In-flight authority changes cancel HTTP. Public run admission remains closed pending a verified tokenizer, Runtime and real acceptance."
+      }
+    },
+    "/internal/v1/model-gateway/complete": {
+      "post": {
+        "operationId": "POST__internal_v1_model_gateway_complete",
+        "summary": "Private model gateway complete",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": [],
+            "executionServiceKey": []
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error; no secret values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GatewayModelReply"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Gateway/tokenizer/model unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayCompleteInput"
+              }
+            }
+          }
+        },
+        "description": "Service auth AND live owner/device credentials required. Reads current execution state over authenticated HTTP; no cross-service SQL. Checks agent/provider/version/report/epoch/deadline. Count uses a verified full-prompt TokenCounter, absent by default (TOKEN_COUNT_UNAVAILABLE); it never generates. Complete matches the counted body/reservation and durably claims the step before I/O. Replays use an encrypted cached reply; uncertain attempts are never retried. In-flight authority changes cancel HTTP. Public run admission remains closed pending a verified tokenizer, Runtime and real acceptance."
+      }
+    },
+    "/v1/codex/status": {
+      "get": {
+        "operationId": "GET__v1_codex_status",
+        "summary": "Native Codex read-only demo profile",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CodexStatus"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/codex/runs": {
+      "post": {
+        "operationId": "POST__v1_codex_runs",
+        "summary": "Native Codex read-only demo profile",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CodexRun"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodexCreate"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "GET__v1_codex_runs",
+        "summary": "Native Codex read-only demo profile",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "codex",
+                "claude"
+              ]
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "queued",
+                "running",
+                "completed",
+                "failed",
+                "stopped"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CodexRun"
+                          },
+                          "maxItems": 50
+                        }
+                      },
+                      "required": [
+                        "items"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/codex/runs/{id}": {
+      "get": {
+        "operationId": "GET__v1_codex_runs_id",
+        "summary": "Native Codex read-only demo profile",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CodexRun"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/codex/runs/{id}/events": {
+      "get": {
+        "operationId": "GET__v1_codex_runs_id_events",
+        "summary": "Native Codex read-only demo profile",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 256,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CodexEvent"
+                          },
+                          "maxItems": 100
+                        },
+                        "next_after": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 256
+                        }
+                      },
+                      "required": [
+                        "items",
+                        "next_after"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/codex/runs/{id}/stop": {
+      "post": {
+        "operationId": "POST__v1_codex_runs_id_stop",
+        "summary": "Native Codex read-only demo profile",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "state": {
+                          "enum": [
+                            "completed",
+                            "failed",
+                            "stopped"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "state"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/codex/poll": {
+      "post": {
+        "operationId": "POST__internal_v1_codex_poll",
+        "summary": "Native Codex read-only demo profile",
+        "security": [
+          {
+            "codexBridgeKey": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CodexPollResult"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodexPoll"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/codex/report": {
+      "post": {
+        "operationId": "POST__internal_v1_codex_report",
+        "summary": "Native Codex read-only demo profile",
+        "security": [
+          {
+            "codexBridgeKey": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "accepted": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "accepted"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodexReport"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/codex/accounts/login": {
+      "post": {
+        "operationId": "POST__v1_codex_accounts_login",
+        "summary": "Agent Bridge v2 account management (one-time laptop bridge command)",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodexLoginStart"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CodexLoginAccepted"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/codex/accounts/login/{login_id}/code": {
+      "post": {
+        "operationId": "POST__v1_codex_accounts_login_login_id_code",
+        "summary": "Agent Bridge v2 account management (one-time laptop bridge command); the code is encrypted, wiped after delivery and never logged",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "login_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodexLoginCode"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CodexCommandAccepted"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/codex/accounts/login/{login_id}/cancel": {
+      "post": {
+        "operationId": "POST__v1_codex_accounts_login_login_id_cancel",
+        "summary": "Agent Bridge v2 account management (one-time laptop bridge command)",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "login_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodexEmpty"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CodexCommandAccepted"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/codex/accounts/{account_id}/activate": {
+      "post": {
+        "operationId": "POST__v1_codex_accounts_account_id_activate",
+        "summary": "Agent Bridge v2 account management (one-time laptop bridge command)",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(codex|claude)-[a-z0-9]{1,32}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodexProviderSelect"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CodexCommandAccepted"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/codex/accounts/{account_id}": {
+      "delete": {
+        "operationId": "DELETE__v1_codex_accounts_account_id",
+        "summary": "Agent Bridge v2 account management (one-time laptop bridge command); system accounts return 409 AI_ACCOUNT_SYSTEM",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(codex|claude)-[a-z0-9]{1,32}$"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "codex",
+                "claude"
+              ]
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CodexCommandAccepted"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/codex/usage/refresh": {
+      "post": {
+        "operationId": "POST__v1_codex_usage_refresh",
+        "summary": "Ask the laptop bridge to re-read usage limits (no inference)",
+        "security": [
+          {
+            "bearerAuth": [],
+            "deviceProof": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodexEmpty"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CodexCommandAccepted"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/codex/state": {
+      "post": {
+        "operationId": "POST__internal_v1_codex_state",
+        "summary": "Bridge snapshot (encrypted at rest, ≤64 KiB, validated, unsafe login URLs dropped)",
+        "security": [
+          {
+            "codexBridgeKey": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodexSnapshot"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "accepted": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "accepted"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/codex/commands/{id}/ack": {
+      "post": {
+        "operationId": "POST__internal_v1_codex_commands_id_ack",
+        "summary": "Bridge reports a command outcome",
+        "security": [
+          {
+            "codexBridgeKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodexAck"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "accepted": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "accepted"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error, no process stderr or credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5430,6 +8524,12 @@
         "type": "apiKey",
         "in": "header",
         "name": "X-Portway-Service-Key"
+      },
+      "codexBridgeKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Portway-Bridge-Key",
+        "description": "Dedicated laptop bridge credential; never ship to mobile client"
       }
     },
     "schemas": {
@@ -5498,6 +8598,44 @@
                     },
                     "required": [
                       "approval"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "429 AI_LIMIT_EXHAUSTED",
+                    "properties": {
+                      "provider": {
+                        "enum": [
+                          "codex",
+                          "claude"
+                        ]
+                      },
+                      "reset_at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "provider",
+                      "reset_at"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "409 AI_LOGIN_ACTIVE",
+                    "properties": {
+                      "login_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "login_id"
                     ]
                   }
                 ]
@@ -5954,13 +9092,25 @@
             "type": "integer"
           },
           "capabilities": {
-            "type": "object"
+            "oneOf": [
+              {
+                "type": "object",
+                "maxProperties": 0
+              },
+              {
+                "$ref": "#/components/schemas/ProviderCapabilityReport"
+              }
+            ]
           },
           "checked_at": {
             "type": [
               "string",
               "null"
             ]
+          },
+          "protocol_valid": {
+            "type": "boolean",
+            "description": "Evaluated using current provider/config/allowlist and database time. Protocol compatibility alone does not authorize run admission."
           }
         },
         "required": [
@@ -5969,7 +9119,8 @@
           "endpoint",
           "model_id",
           "config_version",
-          "capabilities"
+          "capabilities",
+          "protocol_valid"
         ]
       },
       "SecretRef": {
@@ -6123,6 +9274,11 @@
           },
           "revision": {
             "type": "string"
+          },
+          "provider_version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Pinned control provider config version. Required by model RPC; absent only on historical/test snapshots."
           }
         },
         "required": [
@@ -6256,6 +9412,21 @@
             "items": {
               "$ref": "#/components/schemas/Approval"
             }
+          },
+          "turns": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/ExecutionTurn"
+            }
+          },
+          "result": {
+            "$ref": "#/components/schemas/ExecutionResult"
+          },
+          "consecutive_denials": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2
           }
         },
         "required": [
@@ -6440,7 +9611,9 @@
               "run.created",
               "run.state_changed",
               "approval_requested",
-              "approval.resolved"
+              "approval.resolved",
+              "run.completed",
+              "tool_result"
             ]
           },
           "server_time": {
@@ -6502,7 +9675,12 @@
                       "awaiting_approval",
                       "ready",
                       "denied",
-                      "cancelled"
+                      "cancelled",
+                      "dispatched",
+                      "completed",
+                      "failed",
+                      "unknown",
+                      "timeout"
                     ]
                   },
                   "tool_call_id": {
@@ -6532,6 +9710,55 @@
                   "version",
                   "expires_at",
                   "approval_id"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "result_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "source_revision": {
+                    "type": "string"
+                  },
+                  "config_hash": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "content_hash": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "required": [
+                  "result_id",
+                  "source_revision",
+                  "config_hash",
+                  "content_hash"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "tool_call_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "step_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "outcome": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "tool_call_id",
+                  "step_id",
+                  "outcome"
                 ]
               }
             ]
@@ -6580,7 +9807,12 @@
               "awaiting_approval",
               "ready",
               "denied",
-              "cancelled"
+              "cancelled",
+              "dispatched",
+              "completed",
+              "failed",
+              "unknown",
+              "timeout"
             ]
           },
           "id": {
@@ -6692,6 +9924,1516 @@
           "decision",
           "expected_version",
           "args_hash"
+        ]
+      },
+      "ExecutionResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "step_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 65536
+          },
+          "source_revision": {
+            "type": "string"
+          },
+          "config_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "content_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "run_id",
+          "step_id",
+          "summary",
+          "source_revision",
+          "config_hash",
+          "content_hash",
+          "created_at"
+        ]
+      },
+      "ShellProposal": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "command": {
+            "$ref": "#/components/schemas/ShellCommand"
+          }
+        },
+        "required": [
+          "alias",
+          "command"
+        ]
+      },
+      "ShellCommand": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "argv": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "string"
+            }
+          },
+          "working_dir": {
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          }
+        },
+        "required": [
+          "argv",
+          "working_dir",
+          "timeout_seconds"
+        ]
+      },
+      "ToolObservation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "tool_call_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "denied_args_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 16384
+          },
+          "allowed_capability_hints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "code",
+          "tool_call_id"
+        ]
+      },
+      "ExecutionTurn": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "waiting_model",
+              "done",
+              "awaiting_approval",
+              "waiting_tool",
+              "interrupted"
+            ]
+          },
+          "reply_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/ShellProposal"
+          },
+          "approval_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dispatch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dispatch_deadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "outcome_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "observation": {
+            "$ref": "#/components/schemas/ToolObservation"
+          }
+        },
+        "required": [
+          "step_id",
+          "state"
+        ]
+      },
+      "ProviderProbeResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "streaming": {
+            "type": "boolean"
+          },
+          "tool_calling": {
+            "type": "boolean"
+          },
+          "tool_result": {
+            "type": "boolean"
+          },
+          "reported_usage": {
+            "type": "boolean"
+          },
+          "requests": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "error_code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "streaming",
+          "tool_calling",
+          "tool_result",
+          "reported_usage",
+          "requests"
+        ]
+      },
+      "ProviderCapabilityReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "config_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "profile": {
+            "type": "string",
+            "const": "chat-completions-v1"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "checking",
+              "completed"
+            ]
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/ProviderProbeResult"
+          },
+          "runnable": {
+            "type": "boolean",
+            "const": false
+          }
+        },
+        "required": [
+          "check_id",
+          "provider_id",
+          "endpoint",
+          "model_id",
+          "config_version",
+          "profile",
+          "state",
+          "started_at",
+          "deadline",
+          "checked_at",
+          "expires_at",
+          "protocol",
+          "runnable"
+        ]
+      },
+      "ProviderCheckAccepted": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "config_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "profile": {
+            "type": "string",
+            "const": "chat-completions-v1"
+          },
+          "status_url": {
+            "type": "string",
+            "const": "/v1/providers"
+          }
+        },
+        "required": [
+          "check_id",
+          "provider_id",
+          "config_version",
+          "profile",
+          "status_url"
+        ]
+      },
+      "FreeModel": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*:free$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "context_length": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "supported_parameters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "context_length",
+          "supported_parameters"
+        ]
+      },
+      "GatewayCountReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 40000
+          },
+          "request_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "provider_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "epoch": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "run_id",
+          "input_tokens",
+          "request_hash",
+          "provider_version",
+          "epoch"
+        ]
+      },
+      "GatewayCompleteInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 40000
+          },
+          "request_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "provider_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "epoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "step_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "run_id",
+          "input_tokens",
+          "request_hash",
+          "provider_version",
+          "epoch",
+          "step_id"
+        ]
+      },
+      "GatewayModelReply": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "finish": {
+            "type": "string",
+            "enum": [
+              "final",
+              "tool",
+              "error"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 65536
+          },
+          "tool": {
+            "$ref": "#/components/schemas/ShellProposal"
+          },
+          "usage": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "usage_source": {
+            "type": "string",
+            "enum": [
+              "actual",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "finish",
+          "usage",
+          "usage_source"
+        ]
+      },
+      "CodexCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "const": "portway"
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16384,
+            "description": "Limit enforced in UTF-8 bytes; whitespace-only and NUL rejected"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "codex",
+                  "claude"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Default codex"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9._:/\\[\\]-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null/absent or \"default\" = provider default; must be listed in the bridge snapshot when the snapshot lists models"
+          },
+          "effort": {
+            "anyOf": [
+              {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Must be supported by the Codex model; ignored for Claude models without effort support"
+          }
+        },
+        "required": [
+          "workspace",
+          "prompt"
+        ]
+      },
+      "CodexRun": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "stopped"
+            ]
+          },
+          "workspace": {
+            "const": "portway"
+          },
+          "sandbox": {
+            "const": "read-only"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "AI_LIMIT_EXHAUSTED, AI_AUTH_REQUIRED, AI_RUN_FAILED, AI_TIMEOUT, CODEX_BRIDGE_LOST, DEVICE_REVOKED (legacy rows may contain CODEX_EXEC_FAILED)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "provider": {
+            "enum": [
+              "codex",
+              "claude"
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100
+          },
+          "effort": {
+            "anyOf": [
+              {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolved_model": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100
+          },
+          "account_label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 60
+          },
+          "tokens": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodexTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prompt_preview": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120,
+            "description": "Whitespace-collapsed first ≤120 characters (list and get; null in the admission response)"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "workspace",
+          "sandbox",
+          "error_code",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "provider",
+          "model",
+          "effort",
+          "resolved_model",
+          "account_label",
+          "tokens",
+          "prompt_preview"
+        ]
+      },
+      "CodexEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 256
+          },
+          "type": {
+            "enum": [
+              "started",
+              "progress",
+              "completed",
+              "failed"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 65536
+          },
+          "code": {
+            "enum": [
+              "AI_LIMIT_EXHAUSTED",
+              "AI_AUTH_REQUIRED",
+              "AI_RUN_FAILED",
+              "AI_TIMEOUT"
+            ],
+            "description": "Only on failed events"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/CodexRunMeta",
+            "description": "Bridge report only, on completed; stored in run columns and omitted from replayed events"
+          }
+        },
+        "required": [
+          "sequence",
+          "type"
+        ]
+      },
+      "CodexStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "workspace": {
+            "const": "portway"
+          },
+          "sandbox": {
+            "const": "read-only"
+          },
+          "last_seen_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "state_updated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "providers": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "$ref": "#/components/schemas/CodexProvider"
+            },
+            "description": "Last bridge snapshot; empty before the first snapshot, stale when connected=false"
+          },
+          "login": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodexLogin"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Latest login flow from the last 15 minutes"
+          },
+          "commands": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/CodexCommandView"
+            },
+            "description": "Commands from the last 10 minutes"
+          }
+        },
+        "required": [
+          "connected",
+          "workspace",
+          "sandbox",
+          "last_seen_at",
+          "state_updated_at",
+          "providers",
+          "login",
+          "commands"
+        ]
+      },
+      "CodexPoll": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "instance_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lease_token": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43
+          }
+        },
+        "required": [
+          "instance_id"
+        ]
+      },
+      "CodexJob": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "lease_token": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "provider": {
+            "enum": [
+              "codex",
+              "claude"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9._:/\\[\\]-]+$"
+          },
+          "effort": {
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "prompt",
+          "lease_token"
+        ]
+      },
+      "CodexPollResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "continue": {
+            "type": "boolean"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodexJob"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "commands": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/CodexCommand"
+            },
+            "description": "Delivered once; payload is wiped server-side after delivery"
+          }
+        },
+        "required": [
+          "continue",
+          "job",
+          "commands"
+        ]
+      },
+      "CodexReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lease_token": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "event": {
+            "$ref": "#/components/schemas/CodexEvent"
+          }
+        },
+        "required": [
+          "run_id",
+          "lease_token",
+          "event"
+        ]
+      },
+      "CodexTokens": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "input": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "output": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "input",
+          "output"
+        ]
+      },
+      "CodexRunMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "resolved_model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9._:/\\[\\]-]+$"
+          },
+          "account_label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/CodexTokens"
+          }
+        }
+      },
+      "CodexCommand": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "enum": [
+              "login_start",
+              "login_code",
+              "login_cancel",
+              "account_activate",
+              "account_remove",
+              "usage_refresh"
+            ]
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "login_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "provider": {
+                "enum": [
+                  "codex",
+                  "claude"
+                ]
+              },
+              "method": {
+                "enum": [
+                  "phone",
+                  "computer"
+                ]
+              },
+              "code": {
+                "type": "string",
+                "maxLength": 2048
+              },
+              "account_id": {
+                "type": "string",
+                "pattern": "^(codex|claude)-[a-z0-9]{1,32}$"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "payload"
+        ]
+      },
+      "CodexAccount": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(codex|claude)-[a-z0-9]{1,32}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 254
+          },
+          "plan": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40
+          },
+          "logged_in": {
+            "type": "boolean"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "system": {
+            "type": "boolean",
+            "description": "Laptop default CLI login; cannot be removed via API"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "email",
+          "plan",
+          "logged_in",
+          "active",
+          "system"
+        ]
+      },
+      "CodexModel": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9._:/\\[\\]-]+$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "default": {
+            "type": "boolean"
+          },
+          "efforts": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ]
+            }
+          },
+          "default_effort": {
+            "anyOf": [
+              {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "default",
+          "efforts",
+          "default_effort"
+        ]
+      },
+      "CodexUsageWindow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]{1,32}$",
+            "description": "five_hour, weekly, weekly_opus, weekly_sonnet or another id (use window_minutes)"
+          },
+          "used_percent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "window_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "resets_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "used_percent",
+          "window_minutes",
+          "resets_at"
+        ]
+      },
+      "CodexUsage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "ok",
+              "warning",
+              "exhausted",
+              "unknown"
+            ]
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reset_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Only when exhausted: when usage becomes possible again"
+          },
+          "windows": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "$ref": "#/components/schemas/CodexUsageWindow"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "checked_at",
+          "reset_at",
+          "windows"
+        ]
+      },
+      "CodexProvider": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "enum": [
+              "codex",
+              "claude"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "cli_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40
+          },
+          "active_account_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(codex|claude)-[a-z0-9]{1,32}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "accounts": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/CodexAccount"
+            }
+          },
+          "models": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/CodexModel"
+            }
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodexUsage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "installed",
+          "cli_version",
+          "active_account_id",
+          "accounts",
+          "models",
+          "usage"
+        ]
+      },
+      "CodexLogin": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "enum": [
+              "codex",
+              "claude"
+            ]
+          },
+          "method": {
+            "enum": [
+              "phone",
+              "computer"
+            ]
+          },
+          "state": {
+            "enum": [
+              "starting",
+              "waiting_user",
+              "verifying",
+              "completed",
+              "failed",
+              "cancelled",
+              "expired"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "description": "HTTPS only; host in {auth.openai.com, chatgpt.com, claude.ai, claude.com, platform.claude.com, console.anthropic.com}"
+          },
+          "user_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Za-z0-9-]{1,32}$"
+          },
+          "needs_code": {
+            "type": "boolean"
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "LOGIN_FAILED, DEVICE_CODE_UNAVAILABLE, CODE_REJECTED, CLI_MISSING, LOGIN_TIMEOUT, COMMAND_EXPIRED, CODEX_BRIDGE_LOST"
+          },
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(codex|claude)-[a-z0-9]{1,32}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "method",
+          "state",
+          "url",
+          "user_code",
+          "needs_code",
+          "error_code",
+          "account_id",
+          "expires_at",
+          "updated_at"
+        ]
+      },
+      "CodexCommandView": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "enum": [
+              "login_start",
+              "login_code",
+              "login_cancel",
+              "account_activate",
+              "account_remove",
+              "usage_refresh"
+            ]
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "delivered",
+              "done",
+              "failed"
+            ]
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "state",
+          "error_code",
+          "updated_at"
+        ]
+      },
+      "CodexSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "instance_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "providers": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "$ref": "#/components/schemas/CodexProvider"
+            }
+          },
+          "login": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodexLogin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "instance_id",
+          "providers",
+          "login"
+        ]
+      },
+      "CodexAck": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "enum": [
+              "done",
+              "failed"
+            ]
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "CodexLoginStart": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "enum": [
+              "codex",
+              "claude"
+            ]
+          },
+          "method": {
+            "enum": [
+              "phone",
+              "computer"
+            ],
+            "description": "phone: ChatGPT device code / Claude code paste; computer: browser on the laptop"
+          }
+        },
+        "required": [
+          "provider",
+          "method"
+        ]
+      },
+      "CodexLoginCode": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "description": "Trimmed; no inner whitespace"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "CodexProviderSelect": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "enum": [
+              "codex",
+              "claude"
+            ]
+          }
+        },
+        "required": [
+          "provider"
+        ]
+      },
+      "CodexEmpty": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "CodexCommandAccepted": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "command_id"
+        ]
+      },
+      "CodexLoginAccepted": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "login_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "command_id",
+          "login_id"
         ]
       }
     }

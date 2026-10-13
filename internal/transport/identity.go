@@ -1,7 +1,10 @@
 package transport
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -25,6 +28,17 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request, p identity.Pri
 }
 func (s *Server) confirm(w http.ResponseWriter, r *http.Request, p identity.Principal) (int, any, error) {
 	q := r.URL.Query()
+	if r.URL.RawQuery == "" {
+		// Standard Supabase email links have already verified the email. The
+		// fragment is discarded locally, never used as a Portway credential.
+		script := "history.replaceState(null, '', location.pathname);"
+		hash := sha256.Sum256([]byte(script))
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'sha256-"+base64.StdEncoding.EncodeToString(hash[:])+"'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'")
+		fmt.Fprintf(w, `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Portway — подтверждение почты</title><script>%s</script><h1>Вернитесь в Portway</h1><p>После подтверждения почты войдите в приложение с email и паролем. Сервер проверит подтверждение при входе.</p><p><a href="portway://auth/confirmed">Открыть Portway</a></p></html>`, script)
+		return 0, nil, nil
+	}
 	if len(q) != 2 || len(q["type"]) != 1 || q.Get("type") != "email" || len(q["token_hash"]) != 1 {
 		return 0, nil, problem.Invalid("Expected token_hash and type=email only")
 	}

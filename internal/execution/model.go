@@ -20,12 +20,13 @@ type Budget struct {
 	StepLimit int `json:"step_limit"`
 }
 type Snapshot struct {
-	AgentVersionID string        `json:"agent_version_id"`
-	ProviderID     string        `json:"provider_id"`
-	ConfigHash     string        `json:"config_hash"`
-	Config         agents.Config `json:"config"`
-	RepositoryRef  string        `json:"repository_ref"`
-	Revision       string        `json:"revision"`
+	AgentVersionID  string        `json:"agent_version_id"`
+	ProviderID      string        `json:"provider_id"`
+	ProviderVersion int           `json:"provider_version,omitempty"`
+	ConfigHash      string        `json:"config_hash"`
+	Config          agents.Config `json:"config"`
+	RepositoryRef   string        `json:"repository_ref"`
+	Revision        string        `json:"revision"`
 }
 type Step struct {
 	ID       string `json:"id"`
@@ -52,6 +53,9 @@ type Run struct {
 	Steps     []Step        `json:"steps"`
 	Seq       int64         `json:"snapshot_seq"`
 	Approvals []Approval    `json:"approvals,omitempty"`
+	Turns     []Turn        `json:"turns,omitempty"`
+	Result    *Result       `json:"result,omitempty"`
+	Denials   int           `json:"consecutive_denials,omitempty"`
 }
 
 // RunSummary bounds collection responses; full pinned instructions are fetched by ID.
@@ -289,6 +293,11 @@ func (c *Chain) ConfirmStopped(id string, now time.Time) (Event, error) {
 	if r.State != "stopping" || r.Budget.Reserved != 0 {
 		return Event{}, conflict("STOP_NOT_CONFIRMED")
 	}
+	for _, t := range r.Turns {
+		if t.State == "waiting_tool" {
+			return Event{}, conflict("STOP_NOT_CONFIRMED")
+		}
+	}
 	r.State = "cancelled"
 	r.Reason = "owner_requested"
 	r.Version++
@@ -324,6 +333,20 @@ func (c *Chain) Reconcile(now time.Time) []Event {
 		r.Reason = "interrupted"
 		r.StopEpoch++
 		r.Version++
+		for j := range r.Turns {
+			t := &r.Turns[j]
+			if t.State == "waiting_tool" {
+				_, a, err := c.approval(t.ApprovalID)
+				if err == nil {
+					a.ToolState = "unknown"
+					a.Version++
+					out = append(out, c.approvalEvent(r, a, "approval.resolved", now))
+				}
+			}
+			if t.State != "done" {
+				t.State = "interrupted"
+			}
+		}
 		out = append(out, c.cancelApprovals(r, now)...)
 		out = append(out, c.event(r, "run.state_changed", now))
 	}

@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"portway/internal/problem"
 )
 
 func TestSignupUsesConfiguredCallback(t *testing.T) {
@@ -24,5 +26,26 @@ func TestSignupUsesConfiguredCallback(t *testing.T) {
 	auth.ConfirmationURL = callback
 	if _, err := auth.Signup(context.Background(), "owner@example.test", "fixture"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestAuthErrorDoesNotExposeProviderMessage(t *testing.T) {
+	for _, tc := range []struct{ body, code string }{
+		{`{"error_code":"email_not_confirmed","msg":"secret-address"}`, "EMAIL_NOT_CONFIRMED"},
+		{`{"error_code":"invalid_credentials","msg":"secret-address"}`, "AUTH_REQUIRED"},
+		{`{"error_code":"unknown","msg":"secret-address"}`, "AUTH_REQUIRED"},
+		{`invalid upstream body`, "AUTH_REQUIRED"},
+	} {
+		t.Run(tc.code+tc.body[:1], func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(400)
+				w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+			_, err := NewSupabase(srv.URL, "public").Login(context.Background(), "owner@example.test", "test")
+			if p := problem.Public(err); p.Code != tc.code || p.Message == "secret-address" {
+				t.Fatalf("unsafe or incorrect error: %v", p)
+			}
+		})
 	}
 }

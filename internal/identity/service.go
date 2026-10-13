@@ -114,6 +114,13 @@ func (s *Service) Confirm(ctx context.Context, tokenHash string) error {
 	if err != nil {
 		return err
 	}
+	return s.claimOwner(ctx, u)
+}
+
+// Both the custom callback and a password login after Supabase's standard
+// confirmation email may finish setup. Only the reserved, verified subject can
+// claim the installation; email or callback parameters alone are not authority.
+func (s *Service) claimOwner(ctx context.Context, u User) error {
 	if !secure.UUID(u.ID) || u.EmailConfirmedAt == nil {
 		return problem.New(403, "SETUP_DENIED", "Email confirmation required")
 	}
@@ -127,12 +134,12 @@ func (s *Service) Confirm(ctx context.Context, tokenHash string) error {
 		return err
 	}
 	var subject *string
-	var emailHash, name, id string
-	err = tx.QueryRow(ctx, `SELECT id,auth_user_id,email_hash,display_name FROM portway.registration_intents WHERE installation_id=$1`, s.Store.Installation).Scan(&id, &subject, &emailHash, &name)
+	var emailHash, name, id, state string
+	err = tx.QueryRow(ctx, `SELECT id,auth_user_id,email_hash,display_name,state FROM portway.registration_intents WHERE installation_id=$1`, s.Store.Installation).Scan(&id, &subject, &emailHash, &name, &state)
 	if err != nil {
 		return problem.New(403, "SETUP_DENIED", "No matching registration")
 	}
-	if subject == nil || *subject != u.ID || emailHash != secure.Hash(strings.ToLower(u.Email)) {
+	if subject == nil || *subject != u.ID || emailHash != secure.Hash(strings.ToLower(u.Email)) || (state != "sent" && state != "claimed") {
 		return problem.New(403, "SETUP_DENIED", "Confirmation does not match registration")
 	}
 	if status == "claimed" {
@@ -156,6 +163,7 @@ func (s *Service) Confirm(ctx context.Context, tokenHash string) error {
 }
 func (s *Service) Login(ctx context.Context, email, password, label string) (LoginResult, error) {
 	var out LoginResult
+	email = strings.ToLower(strings.TrimSpace(email))
 	if !validEmail(email) || password == "" || len(password) > 1024 || len(label) > 120 {
 		return out, problem.Invalid("Invalid login fields")
 	}
@@ -177,7 +185,10 @@ func (s *Service) Login(ctx context.Context, email, password, label string) (Log
 	var p Profile
 	err = s.Store.Pool.QueryRow(ctx, `SELECT id,display_name,email FROM portway.owners WHERE installation_id=$1 AND auth_user_id=$2`, s.Store.Installation, c.Subject).Scan(&p.ID, &p.Name, &p.Email)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return out, problem.New(403, "OWNER_REQUIRED", "Installation owner required")
+		if err = s.claimOwner(ctx, u); err != nil {
+			return out, err
+		}
+		err = s.Store.Pool.QueryRow(ctx, `SELECT id,display_name,email FROM portway.owners WHERE installation_id=$1 AND auth_user_id=$2`, s.Store.Installation, c.Subject).Scan(&p.ID, &p.Name, &p.Email)
 	}
 	if err != nil {
 		return out, err

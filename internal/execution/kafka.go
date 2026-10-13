@@ -32,7 +32,7 @@ func (e Envelope) Validate(now time.Time) error {
 	return nil
 }
 func eventType(kind string) bool {
-	return kind == "run.created" || kind == "run.state_changed" || kind == "approval_requested" || kind == "approval.resolved"
+	return kind == "run.created" || kind == "run.state_changed" || kind == "approval_requested" || kind == "approval.resolved" || kind == "run.completed" || kind == "tool_result"
 }
 func (s Store) RelayOne(ctx context.Context, publish func(context.Context, Envelope) error) (bool, error) {
 	tx, err := s.Pool.Begin(ctx)

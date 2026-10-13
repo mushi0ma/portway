@@ -67,6 +67,17 @@ func (s *Supabase) call(ctx context.Context, method, path, token string, body, o
 		return problem.Unavailable()
 	}
 	if resp.StatusCode >= 400 {
+		var failure struct {
+			Code string `json:"error_code"`
+		}
+		// Only known codes cross the boundary. Provider messages may contain
+		// addresses or credentials and must never be returned to the client.
+		b, readErr := io.ReadAll(io.LimitReader(resp.Body, 4097))
+		if readErr == nil && len(b) <= 4096 && json.Unmarshal(b, &failure) == nil {
+			if failure.Code == "email_not_confirmed" {
+				return problem.New(403, "EMAIL_NOT_CONFIRMED", "Email confirmation required")
+			}
+		}
 		return problem.New(401, "AUTH_REQUIRED", "Authentication failed")
 	}
 	if out != nil {

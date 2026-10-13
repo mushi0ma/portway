@@ -188,6 +188,7 @@ func TestBackend(t *testing.T) {
 	auth.url = upstream.URL
 	master := bytes.Repeat([]byte{0x17}, 32)
 	c := config.Config{Environment: "test", InstallationID: installation, InstallationName: "Integration", AuthURL: auth.url, AuthKey: "public", MasterKey: master, AllowedEndpoints: []string{"http://model:11434/v1"}}
+	t.Run("standard_email_confirmation", func(t *testing.T) { exerciseStandardConfirmation(t, c, app) })
 	var logs bytes.Buffer
 	var logMu sync.Mutex
 	logger := slog.New(slog.NewJSONHandler(&lockedWriter{&logMu, &logs}, nil))
@@ -311,6 +312,8 @@ func TestBackend(t *testing.T) {
 		ID string `json:"id"`
 	}
 	json.Unmarshal(prov.Data, &pv)
+	exerciseOpenRouterProvision(t, c, app, token, proof)
+	exerciseProviderChecks(t, c, app, root, token, proof, secretRef.ID)
 	configJSON := fmt.Sprintf(`{"instructions":"Implement a focused change","role_code":"coder","role_catalog_version":1,"tools":[{"alias":"read","kind":"workspace.read"}],"provider_ref":%q}`, pv.ID)
 	agentBody := `{"name":"Coder","config":` + configJSON + `}`
 	code, _, b = call("POST", "/v1/agents", agentBody, token, proof, "", nil)
@@ -433,7 +436,10 @@ func TestBackend(t *testing.T) {
 			}
 		}
 	}
+	exerciseCodexBridge(t, c, app, root, one)
+	exercisePrivateGateway(t, c, app, root, execution.Store{Pool: execDB.Pool, Installation: installation}, token, proof)
 	exerciseApprovals(t, ctx, execution.Store{Pool: execDB.Pool, Installation: installation}, client, api.URL, one, two)
+	exerciseHarnessResult(t, ctx, execution.Store{Pool: execDB.Pool, Installation: installation}, client, api.URL, one)
 	streamClosed := exerciseSSE(t, ctx, execution.Store{Pool: execDB.Pool, Installation: installation}, root, client, api.URL, one, auth)
 	code, _, b = call("DELETE", "/v1/devices/"+one.DeviceID, "", two.Session.AccessToken, two.DeviceProof, "revoke-device-one", nil)
 	want(t, code, 200, b)

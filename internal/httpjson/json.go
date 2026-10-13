@@ -21,6 +21,15 @@ func Decode(w http.ResponseWriter, r *http.Request, out any) error {
 	if err != nil {
 		return problem.New(413, "REQUEST_TOO_LARGE", "Request exceeds 1 MiB")
 	}
+	return DecodeObject(b, out)
+}
+
+// DecodeObject validates bounded JSON from either HTTP or a model tool proposal.
+// It rejects duplicate, unknown and noncanonical fields before typed decoding.
+func DecodeObject(b []byte, out any) error {
+	if len(b) > 1<<20 {
+		return problem.New(413, "REQUEST_TOO_LARGE", "JSON exceeds 1 MiB")
+	}
 	if !utf8.Valid(b) || len(bytes.TrimSpace(b)) == 0 || bytes.TrimSpace(b)[0] != '{' {
 		return problem.Invalid("Expected a UTF-8 JSON object")
 	}
